@@ -4,7 +4,10 @@
       "Bash(npx tsc *)",
       "Bash(npx eslint *)",
       "Bash(npx next *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(curl -s http://localhost:3456/api/data)",
+      "Bash(curl *)",
+      "Bash(taskkill /PID 19228 /F)"
     ]
   }
 }

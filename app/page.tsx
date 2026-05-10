@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import UserMenu from "./components/UserMenu";
 import FileUpload from "./components/FileUpload";
 import FilterBar from "./components/FilterBar";
@@ -12,6 +13,7 @@ import VehicleTable from "./components/VehicleTable";
 import PnLTable from "./components/PnLTable";
 import type { FleetRow } from "./lib/types";
 import { num, getFinancialYear } from "./lib/dataUtils";
+import { getStoredUser } from "./lib/auth";
 
 const MONTH_ORDER = [
   "April", "May", "June", "July", "August", "September",
@@ -19,12 +21,60 @@ const MONTH_ORDER = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [allData, setAllData] = useState<FleetRow[]>([]);
   const [filterBranch, setFilterBranch] = useState<string[]>([]);
   const [filterMonth, setFilterMonth] = useState<string[]>([]);
   const [filterFY, setFilterFY] = useState<string[]>([]);
   const [filterModel, setFilterModel] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+
+  const user = typeof window !== "undefined" ? getStoredUser() : null;
+
+  useEffect(() => {
+    if (!getStoredUser()) {
+      router.push("/login");
+      return;
+    }
+    fetchAllData();
+  }, [router]);
+
+  async function fetchAllData() {
+    setLoading(true);
+    try {
+      const currentUser = getStoredUser();
+      const role = currentUser?.role || "branch";
+      const branch = currentUser?.username || "";
+      const res = await fetch(`/api/data?role=${role}&branch=${encodeURIComponent(branch)}`);
+      const json = await res.json();
+      if (!json.files || !json.files.length) {
+        setAllData([]);
+        setLoading(false);
+        return;
+      }
+
+      const XLSX = await import("xlsx");
+      const allRows: FleetRow[] = [];
+
+      for (const file of json.files) {
+        const dlRes = await fetch(file.download_url);
+        const buf = await dlRes.arrayBuffer();
+        const workbook = XLSX.read(buf, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<FleetRow>(sheet, { defval: "" });
+        const valid = rows.filter(r => r["Registration Number"] && String(r["Registration Number"]).trim());
+        allRows.push(...valid);
+      }
+
+      setAllData(allRows);
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+    }
+    setLoading(false);
+  }
 
   const branches = useMemo(() => [...new Set(allData.map(r => r.Branch).filter(Boolean))].sort(), [allData]);
   const months = useMemo(() => [...new Set(allData.map(r => r.Month).filter(Boolean))].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b)), [allData]);
@@ -51,25 +101,93 @@ export default function Home() {
     setFilterStatus(status);
   };
 
-  const handleDataLoaded = useCallback((data: FleetRow[]) => {
-    setAllData(prev => {
-      const newPeriods = new Set(data.map(r => `${r.Month}|||${r.Year}`));
-      const kept = prev.filter(r => !newPeriods.has(`${r.Month}|||${r.Year}`));
-      return [...kept, ...data];
-    });
-    setFilterBranch([]);
-    setFilterMonth([]);
-    setFilterFY([]);
-    setFilterModel("");
-    setFilterStatus("");
-  }, []);
+  const handleDataLoaded = useCallback(async (_data: FleetRow[], file: File, filename: string) => {
+    if (!user) return;
+    setUploading(true);
+
+    const arrayBuffer = await file.arrayBuffer();
+    const base64 = btoa(
+      new Uint8Array(arrayBuffer).reduce((str, byte) => str + String.fromCharCode(byte), "")
+    );
+
+    try {
+      const res = await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename, content: base64, username: user.username }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setShowUpload(false);
+        await fetchAllData();
+      } else {
+        alert("Upload failed: " + (json.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Upload failed. Please try again.");
+    }
+    setUploading(false);
+  }, [user]);
 
   const handleReUpload = useCallback(() => {
-    setAllData([]);
+    setShowUpload(true);
   }, []);
 
+  if (loading) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center min-h-screen" style={{ background: "var(--bg)" }}>
+        <div className="spinner mb-4" />
+        <p className="text-sm" style={{ color: "var(--text3)" }}>Loading fleet data from GitHub...</p>
+      </div>
+    );
+  }
+
+  if (showUpload) {
+    return (
+      <div className="min-h-screen" style={{ background: "var(--bg)" }}>
+        <div className="flex items-center justify-between px-8 py-4">
+          <button
+            onClick={() => setShowUpload(false)}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            style={{ color: "var(--text2)", background: "var(--surface2)", border: "1px solid var(--border2)" }}
+          >
+            ← Back to Dashboard
+          </button>
+          <UserMenu />
+        </div>
+        <FileUpload onDataLoaded={handleDataLoaded} uploading={uploading} />
+      </div>
+    );
+  }
+
   if (!allData.length) {
-    return <FileUpload onDataLoaded={handleDataLoaded} />;
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center min-h-screen" style={{ background: "var(--bg)" }}>
+        <div className="absolute top-0 right-0 p-4">
+          <UserMenu />
+        </div>
+        <div className="text-center">
+          <svg className="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="1.5">
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+            <polyline points="13 2 13 9 20 9" />
+          </svg>
+          <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--text)" }}>No data available</h2>
+          <p className="text-sm mb-6" style={{ color: "var(--text3)" }}>
+            {user?.role === "branch"
+              ? `No files found for ${user.username}. Upload your branch data to get started.`
+              : "No fleet data files found. Upload data to get started."}
+          </p>
+          <button
+            onClick={() => setShowUpload(true)}
+            className="px-6 py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: "var(--accent)" }}
+          >
+            Upload Data
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const uniqueMonths = [...new Set(allData.map(r => `${r.Month} ${r.Year}`))];
@@ -127,8 +245,9 @@ export default function Home() {
           >
             {allData.length} vehicles · {uniqueMonths.length} month{uniqueMonths.length > 1 ? "s" : ""}
           </div>
-          <label
-            className="cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          <button
+            onClick={handleReUpload}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
             style={{
               color: "var(--accent2)",
               background: "var(--accent-glow)",
@@ -136,51 +255,6 @@ export default function Home() {
             }}
           >
             + Add Month
-            <input
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              className="hidden"
-              onChange={e => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const ext = file.name.split(".").pop()?.toLowerCase();
-                if (ext === "xlsx" || ext === "xls") {
-                  const reader = new FileReader();
-                  reader.onload = async (ev) => {
-                    const XLSX = await import("xlsx");
-                    const workbook = XLSX.read(ev.target?.result, { type: "array" });
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json<FleetRow>(sheet, { defval: "" });
-                    const data = rows.filter(r => r["Registration Number"] && String(r["Registration Number"]).trim());
-                    handleDataLoaded(data);
-                  };
-                  reader.readAsArrayBuffer(file);
-                } else {
-                  import("papaparse").then(({ default: Papa }) => {
-                    Papa.parse<FleetRow>(file, {
-                      header: true,
-                      skipEmptyLines: true,
-                      complete(results) {
-                        const data = results.data.filter(r => r["Registration Number"] && r["Registration Number"].trim());
-                        handleDataLoaded(data);
-                      },
-                    });
-                  });
-                }
-                e.target.value = "";
-              }}
-            />
-          </label>
-          <button
-            onClick={handleReUpload}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            style={{
-              color: "var(--text2)",
-              background: "var(--surface2)",
-              border: "1px solid var(--border2)",
-            }}
-          >
-            Clear All
           </button>
           <UserMenu />
         </div>
