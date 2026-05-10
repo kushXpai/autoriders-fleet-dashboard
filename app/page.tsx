@@ -259,7 +259,7 @@ export default function Home() {
           >
             {uniqueVehicleCount} vehicles · {uniqueMonths.length} month{uniqueMonths.length > 1 ? "s" : ""}
           </div>
-          <ExportPDF data={filteredData} />
+          {/* <ExportPDF data={filteredData} /> */}
           <button
             onClick={handleReUpload}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
