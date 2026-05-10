@@ -116,7 +116,7 @@ export default function FileUpload({ onDataLoaded, uploading }: Props) {
           <div className="text-center py-8">
             <div className="spinner mx-auto mb-4" />
             <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--text)" }}>
-              Uploading to GitHub...
+              Uploading...
             </h2>
             <p className="text-sm" style={{ color: "var(--text3)" }}>
               Saving as <span className="font-mono font-semibold">{branchDisplay}-{month}-{year}.xlsx</span>
@@ -242,7 +242,7 @@ export default function FileUpload({ onDataLoaded, uploading }: Props) {
               className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
               style={{ background: "var(--accent)" }}
             >
-              Upload & Save to GitHub
+              Upload & Save
             </button>
 
             <div

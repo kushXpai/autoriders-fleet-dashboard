@@ -81,20 +81,21 @@ export const cr = (v: number): string => {
 };
 
 export const getActivePct = (data: FleetRow[]): string => {
-  const allVehicles = new Set(data.map(r => r['Registration Number']));
-  const active = data.filter(r => num(r['Total Revenue']) > 0);
-  const activeVehicles = new Set(active.map(r => r['Registration Number']));
+  const allVehicles = new Set(data.map(r => r['Registration Number']).filter(Boolean));
+  const activeVehicles = new Set(
+    data.filter(r => num(r['Total Revenue']) > 0).map(r => r['Registration Number'])
+  );
   return allVehicles.size > 0
     ? (activeVehicles.size / allVehicles.size * 100).toFixed(1) + '%'
     : '0%';
 };
 
 export const getAvgRev = (data: FleetRow[]): string => {
-  const active = data.filter(r => num(r['Total Revenue']) > 0);
-  if (!active.length) return '—';
-  const totalRevenue = active.reduce((s, r) => s + num(r['Total Revenue']), 0);
-  const uniqueVehicles = new Set(active.map(r => r['Registration Number'])).size;
-  const uniqueMonths = new Set(active.map(r => `${r.Month}|||${r.Year}`)).size;
+  const totalRevenue = data.reduce((s, r) => s + num(r['Total Revenue']), 0);
+  if (totalRevenue === 0) return '—';
+  const uniqueVehicles = new Set(data.map(r => r['Registration Number']).filter(Boolean)).size;
+  const uniqueMonths = new Set(data.map(r => `${r.Month}|||${r.Year}`).filter(v => v !== '|||')).size;
+  if (!uniqueVehicles || !uniqueMonths) return '—';
   const avg = totalRevenue / uniqueVehicles / uniqueMonths;
   return cr(avg);
 };
@@ -109,3 +110,50 @@ export const getTopBranch = (data: FleetRow[]): string => {
   const top = Object.entries(byBranch).sort((a, b) => b[1] - a[1])[0];
   return top ? top[0] : '—';
 };
+
+export const getUniqueVehicleCount = (data: FleetRow[]): number => {
+  return new Set(data.map(r => r['Registration Number']).filter(Boolean)).size;
+};
+
+export function aggregateByVehicle(data: FleetRow[]): FleetRow[] {
+  const map = new Map<string, FleetRow[]>();
+  data.forEach(r => {
+    const reg = r['Registration Number'];
+    if (!reg) return;
+    if (!map.has(reg)) map.set(reg, []);
+    map.get(reg)!.push(r);
+  });
+
+  return [...map.entries()].map(([, rows]) => {
+    const totalKms = rows.reduce((s, r) => s + num(r['Total KMS']), 0);
+    const totalRev = rows.reduce((s, r) => s + num(r['Total Revenue']), 0);
+    const totalCost = rows.reduce((s, r) => s + num(r['Total Cost']), 0);
+    const profit = rows.reduce((s, r) => s + num(r['Profit']), 0);
+    const fuel = rows.reduce((s, r) => s + num(r['Fuel Cost']), 0);
+    const repair = rows.reduce((s, r) => s + num(r['Repair Cost']), 0);
+    const chauffeur = rows.reduce((s, r) => s + num(r['Chauffeur Cost']), 0);
+    const emi = rows.reduce((s, r) => s + num(r['EMI']), 0);
+    const margin = totalRev > 0 ? (profit / totalRev * 100).toFixed(1) : '0';
+
+    return {
+      ...rows[0],
+      'Total KMS': String(totalKms),
+      'CD Kms': String(rows.reduce((s, r) => s + num(r['CD Kms']), 0)),
+      'SD Kms': String(rows.reduce((s, r) => s + num(r['SD Kms']), 0)),
+      'STR Kms': String(rows.reduce((s, r) => s + num(r['STR Kms']), 0)),
+      'Revenue KMS': String(rows.reduce((s, r) => s + num(r['Revenue KMS']), 0)),
+      'NRK': String(rows.reduce((s, r) => s + num(r['NRK']), 0)),
+      'CD Revenue': String(rows.reduce((s, r) => s + num(r['CD Revenue']), 0)),
+      'SD Revenue': String(rows.reduce((s, r) => s + num(r['SD Revenue']), 0)),
+      'STR Revenue': String(rows.reduce((s, r) => s + num(r['STR Revenue']), 0)),
+      'Total Revenue': String(totalRev),
+      'Fuel Cost': String(fuel),
+      'Repair Cost': String(repair),
+      'Chauffeur Cost': String(chauffeur),
+      'EMI': String(emi),
+      'Total Cost': String(totalCost),
+      'Profit': String(profit),
+      'Profit %': margin,
+    } as FleetRow;
+  });
+}

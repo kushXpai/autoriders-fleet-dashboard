@@ -4,25 +4,25 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 :root {
-  --bg: #f0f4f9;
+  --bg: #f8fafc;
   --surface: #ffffff;
-  --surface2: #f5f8fc;
-  --border: #dde4ef;
-  --border2: #c8d3e6;
-  --text: #0f1c2e;
-  --text2: #3d5270;
-  --text3: #8a9ab8;
+  --surface2: #f1f5f9;
+  --border: #e2e8f0;
+  --border2: #cbd5e1;
+  --text: #0f172a;
+  --text2: #475569;
+  --text3: #94a3b8;
   --accent: #2563eb;
   --accent2: #1d4ed8;
-  --accent-glow: rgba(37,99,235,0.10);
+  --accent-glow: rgba(37,99,235,0.08);
   --green: #059669;
-  --green-dim: rgba(5,150,105,0.10);
+  --green-dim: rgba(5,150,105,0.08);
   --red: #dc2626;
-  --red-dim: rgba(220,38,38,0.10);
+  --red-dim: rgba(220,38,38,0.08);
   --amber: #d97706;
-  --amber-dim: rgba(217,119,6,0.10);
+  --amber-dim: rgba(217,119,6,0.08);
   --purple: #7c3aed;
-  --purple-dim: rgba(124,58,237,0.10);
+  --purple-dim: rgba(124,58,237,0.08);
   --radius: 14px;
   --radius-sm: 8px;
 }

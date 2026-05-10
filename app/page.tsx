@@ -4,15 +4,18 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import UserMenu from "./components/UserMenu";
 import FileUpload from "./components/FileUpload";
+import DataManager from "./components/DataManager";
 import FilterBar from "./components/FilterBar";
 import KpiGrid from "./components/KpiGrid";
 import InsightStrip from "./components/InsightStrip";
 import Charts from "./components/Charts";
 import DecisionPanel from "./components/DecisionPanel";
 import VehicleTable from "./components/VehicleTable";
+import VehicleTrend from "./components/VehicleTrend";
 import PnLTable from "./components/PnLTable";
+import ExportPDF from "./components/ExportPDF";
 import type { FleetRow } from "./lib/types";
-import { num, getFinancialYear } from "./lib/dataUtils";
+import { num, getFinancialYear, getUniqueVehicleCount } from "./lib/dataUtils";
 import { getStoredUser } from "./lib/auth";
 
 const MONTH_ORDER = [
@@ -31,6 +34,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [showManage, setShowManage] = useState(false);
 
   const user = typeof window !== "undefined" ? getStoredUser() : null;
 
@@ -138,7 +142,7 @@ export default function Home() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center min-h-screen" style={{ background: "var(--bg)" }}>
         <div className="spinner mb-4" />
-        <p className="text-sm" style={{ color: "var(--text3)" }}>Loading fleet data from GitHub...</p>
+        <p className="text-sm" style={{ color: "var(--text3)" }}>Loading fleet data...</p>
       </div>
     );
   }
@@ -158,6 +162,15 @@ export default function Home() {
         </div>
         <FileUpload onDataLoaded={handleDataLoaded} uploading={uploading} />
       </div>
+    );
+  }
+
+  if (showManage) {
+    return (
+      <DataManager
+        onClose={() => setShowManage(false)}
+        onDeleted={() => fetchAllData()}
+      />
     );
   }
 
@@ -191,6 +204,7 @@ export default function Home() {
   }
 
   const uniqueMonths = [...new Set(allData.map(r => `${r.Month} ${r.Year}`))];
+  const uniqueVehicleCount = getUniqueVehicleCount(allData);
 
   return (
     <div className="flex flex-col flex-1 min-h-screen" style={{ background: "var(--bg)" }}>
@@ -234,7 +248,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full"
             style={{
@@ -243,8 +257,9 @@ export default function Home() {
               border: "1px solid var(--border)",
             }}
           >
-            {allData.length} vehicles · {uniqueMonths.length} month{uniqueMonths.length > 1 ? "s" : ""}
+            {uniqueVehicleCount} vehicles · {uniqueMonths.length} month{uniqueMonths.length > 1 ? "s" : ""}
           </div>
+          <ExportPDF data={filteredData} />
           <button
             onClick={handleReUpload}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
@@ -254,7 +269,18 @@ export default function Home() {
               border: "1px solid rgba(59,130,246,0.2)",
             }}
           >
-            + Add Month
+            + Add New Data
+          </button>
+          <button
+            onClick={() => setShowManage(true)}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            style={{
+              color: "var(--text2)",
+              background: "var(--surface2)",
+              border: "1px solid var(--border2)",
+            }}
+          >
+            Manage Data
           </button>
           <UserMenu />
         </div>
@@ -272,7 +298,7 @@ export default function Home() {
           filterFY={filterFY}
           filterModel={filterModel}
           filterStatus={filterStatus}
-          totalCount={filteredData.length}
+          totalCount={getUniqueVehicleCount(filteredData)}
           onChange={handleFilterChange}
         />
         <KpiGrid data={filteredData} />
@@ -280,6 +306,7 @@ export default function Home() {
         <PnLTable data={filteredData} />
         <Charts data={filteredData} />
         <DecisionPanel data={filteredData} />
+        <VehicleTrend data={filteredData} />
         <VehicleTable data={filteredData} />
       </main>
     </div>

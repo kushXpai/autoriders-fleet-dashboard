@@ -1,7 +1,7 @@
 "use client";
 
 import type { FleetRow } from "../lib/types";
-import { num, getVehicleAgeYears } from "../lib/dataUtils";
+import { num, getVehicleAgeYears, aggregateByVehicle } from "../lib/dataUtils";
 
 type Verdict = "keep" | "sell" | "watch";
 
@@ -82,7 +82,8 @@ function VehicleCard({ r, verdict, avgProfit, avgMargin, avgRepair }: {
 }
 
 export default function DecisionPanel({ data }: { data: FleetRow[] }) {
-  const active = data.filter(r => num(r["Total Revenue"]) > 0);
+  const agg = aggregateByVehicle(data);
+  const active = agg.filter(r => num(r["Total Revenue"]) > 0);
 
   const avgProfit = active.length ? active.reduce((s, r) => s + num(r.Profit), 0) / active.length : 0;
   const avgMargin = active.length ? active.reduce((s, r) => { const rev = num(r["Total Revenue"]); return s + (rev > 0 ? num(r.Profit) / rev : 0); }, 0) / active.length : 0;

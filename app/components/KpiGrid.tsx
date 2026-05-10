@@ -1,23 +1,24 @@
 "use client";
 
 import type { FleetRow } from "../lib/types";
-import { num, cr, getVehicleAgeYears } from "../lib/dataUtils";
+import { num, cr, getVehicleAgeYears, getUniqueVehicleCount } from "../lib/dataUtils";
 
 interface Props {
   data: FleetRow[];
 }
 
 export default function KpiGrid({ data }: Props) {
-  const active = data.filter((r) => num(r["Total Revenue"]) > 0);
-  const revenue = active.reduce((s, r) => s + num(r["Total Revenue"]), 0);
-  const profit = active.reduce((s, r) => s + num(r.Profit), 0);
-  const expenses = active.reduce((s, r) => s + num(r["Total Cost"]), 0);
-  const margin = revenue > 0 ? (profit / revenue * 100).toFixed(1) : "0";
-  const uniqueVehicles = new Set(data.map((r) => r["Registration Number"])).size;
-  const activeVehicles = new Set(
-    active.map((r) => r["Registration Number"])
-  ).size;
+  const uniqueVehicles = getUniqueVehicleCount(data);
+
+  const activeRegs = new Set<string>();
+  data.forEach(r => { if (num(r["Total Revenue"]) > 0) activeRegs.add(r["Registration Number"]); });
+  const activeVehicles = activeRegs.size;
   const idleVehicles = uniqueVehicles - activeVehicles;
+
+  const revenue = data.reduce((s, r) => s + num(r["Total Revenue"]), 0);
+  const profit = data.reduce((s, r) => s + num(r.Profit), 0);
+  const expenses = data.reduce((s, r) => s + num(r["Total Cost"]), 0);
+  const margin = revenue > 0 ? (profit / revenue * 100).toFixed(1) : "0";
 
   const uniqueByReg = new Map<string, FleetRow>();
   data.forEach(r => { if (!uniqueByReg.has(r["Registration Number"])) uniqueByReg.set(r["Registration Number"], r); });

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { FleetRow } from "../lib/types";
-import { num, getVehicleAgeYears } from "../lib/dataUtils";
+import { num, getVehicleAgeYears, aggregateByVehicle } from "../lib/dataUtils";
 
 const PAGE_SIZE = 20;
 
@@ -40,6 +40,8 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(1);
 
+  const aggregated = useMemo(() => aggregateByVehicle(data), [data]);
+
   const handleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => (d === 1 ? -1 : 1));
     else { setSortCol(col); setSortDir(-1); }
@@ -48,13 +50,13 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return data.filter(r =>
+    return aggregated.filter(r =>
       !q ||
       (r["Registration Number"] || "").toLowerCase().includes(q) ||
       (r.Model || "").toLowerCase().includes(q) ||
       (r["Registration Date"] || "").toLowerCase().includes(q)
     );
-  }, [data, search]);
+  }, [aggregated, search]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {

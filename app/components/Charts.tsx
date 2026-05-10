@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { FleetRow } from "../lib/types";
-import { num, getVehicleAgeBucket } from "../lib/dataUtils";
+import { num, getVehicleAgeBucket, aggregateByVehicle } from "../lib/dataUtils";
 import {
   Chart,
   BarController, BarElement,
@@ -112,7 +112,8 @@ function Chip({ label, green }: { label: string; green?: boolean }) {
 /* ─── Revenue by Model ────────────────────────────── */
 function RevenueByModelChart({ data }: { data: FleetRow[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const active = data.filter(r => num(r["Total Revenue"]) > 0);
+  const agg = aggregateByVehicle(data);
+  const active = agg.filter(r => num(r["Total Revenue"]) > 0);
   const byModel: Record<string, { rev: number; vehicles: Set<string> }> = {};
   active.forEach(r => {
     const model = r.Model || "Unknown";
@@ -150,13 +151,13 @@ function RevenueByModelChart({ data }: { data: FleetRow[] }) {
 /* ─── Model Doughnut ────────────────────────────── */
 function ModelChart({ data }: { data: FleetRow[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const byModel: Record<string, Set<string>> = {};
+  const uniqueRegs = new Map<string, string>();
   data.forEach(r => {
-    const model = r.Model || "Unknown";
-    if (!byModel[model]) byModel[model] = new Set();
-    byModel[model].add(r["Registration Number"]);
+    if (!uniqueRegs.has(r["Registration Number"])) uniqueRegs.set(r["Registration Number"], r.Model || "Unknown");
   });
-  const sorted = Object.entries(byModel).map(([m, s]) => [m, s.size] as [string, number]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const byModel: Record<string, number> = {};
+  uniqueRegs.forEach(model => { byModel[model] = (byModel[model] || 0) + 1; });
+  const sorted = Object.entries(byModel).map(([m, count]) => [m, count] as [string, number]).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const config: ChartConfiguration = {
@@ -182,11 +183,10 @@ function ModelChart({ data }: { data: FleetRow[] }) {
 /* ─── Cost Breakdown ─────────────────────────────── */
 function CostChart({ data }: { data: FleetRow[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const active = data.filter(r => num(r["Total Revenue"]) > 0);
-  const fuel = active.reduce((s, r) => s + num(r["Fuel Cost"]), 0);
-  const repair = active.reduce((s, r) => s + num(r["Repair Cost"]), 0);
-  const chauffeur = active.reduce((s, r) => s + num(r["Chauffeur Cost"]), 0);
-  const emi = active.reduce((s, r) => s + num(r.EMI), 0);
+  const fuel = data.reduce((s, r) => s + num(r["Fuel Cost"]), 0);
+  const repair = data.reduce((s, r) => s + num(r["Repair Cost"]), 0);
+  const chauffeur = data.reduce((s, r) => s + num(r["Chauffeur Cost"]), 0);
+  const emi = data.reduce((s, r) => s + num(r.EMI), 0);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const config: ChartConfiguration = {
@@ -212,7 +212,8 @@ function CostChart({ data }: { data: FleetRow[] }) {
 /* ─── Profit Margin by Model ─────────────────────── */
 function MarginChart({ data }: { data: FleetRow[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const active = data.filter(r => num(r["Total Revenue"]) > 0);
+  const agg = aggregateByVehicle(data);
+  const active = agg.filter(r => num(r["Total Revenue"]) > 0);
   const byModel: Record<string, { rev: number; prof: number }> = {};
   active.forEach(r => {
     const model = r.Model || "Unknown";
@@ -252,7 +253,8 @@ function MarginChart({ data }: { data: FleetRow[] }) {
 /* ─── Scatter ──────────────────────────────────── */
 function ScatterChart({ data }: { data: FleetRow[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const active = data.filter(r => num(r["Total Revenue"]) > 0).slice(0, 300);
+  const agg = aggregateByVehicle(data);
+  const active = agg.filter(r => num(r["Total Revenue"]) > 0).slice(0, 300);
 
   const config: ChartConfiguration = {
     type: "scatter",
@@ -281,8 +283,9 @@ function ScatterChart({ data }: { data: FleetRow[] }) {
 /* ─── KMS Distribution ────────────────────────── */
 function KmsChart({ data }: { data: FleetRow[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const agg = aggregateByVehicle(data);
   const buckets: Record<string, number> = { "<1000": 0, "1000–2000": 0, "2000–3000": 0, "3000–4000": 0, "4000–5000": 0, "5000+": 0 };
-  data.forEach(r => {
+  agg.forEach(r => {
     const kms = num(r["Total KMS"]);
     if (kms < 1000) buckets["<1000"]++;
     else if (kms < 2000) buckets["1000–2000"]++;
@@ -315,7 +318,8 @@ function KmsChart({ data }: { data: FleetRow[] }) {
 /* ─── Profit by Model ────────────────────────────── */
 function ProfitByModelChart({ data }: { data: FleetRow[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const active = data.filter(r => num(r["Total Revenue"]) > 0);
+  const agg = aggregateByVehicle(data);
+  const active = agg.filter(r => num(r["Total Revenue"]) > 0);
   const byModel: Record<string, number[]> = {};
   active.forEach(r => {
     if (!byModel[r.Model]) byModel[r.Model] = [];
@@ -396,7 +400,8 @@ function AgeDistributionChart({ data }: { data: FleetRow[] }) {
 function ProfitByAgeChart({ data }: { data: FleetRow[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const AGE_ORDER = ['<1 Year', '1-2 Years', '2-3 Years', '3-5 Years', '5+ Years'];
-  const active = data.filter(r => num(r["Total Revenue"]) > 0);
+  const agg = aggregateByVehicle(data);
+  const active = agg.filter(r => num(r["Total Revenue"]) > 0);
 
   const byAge: Record<string, { profit: number; count: number }> = {};
   AGE_ORDER.forEach(b => { byAge[b] = { profit: 0, count: 0 }; });
@@ -441,7 +446,8 @@ function ProfitByAgeChart({ data }: { data: FleetRow[] }) {
 function RepairByAgeChart({ data }: { data: FleetRow[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const AGE_ORDER = ['<1 Year', '1-2 Years', '2-3 Years', '3-5 Years', '5+ Years'];
-  const active = data.filter(r => num(r["Total Revenue"]) > 0);
+  const agg = aggregateByVehicle(data);
+  const active = agg.filter(r => num(r["Total Revenue"]) > 0);
 
   const byAge: Record<string, { repair: number; count: number }> = {};
   AGE_ORDER.forEach(b => { byAge[b] = { repair: 0, count: 0 }; });

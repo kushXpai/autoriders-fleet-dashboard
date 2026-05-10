@@ -6,7 +6,7 @@ import { getActivePct, getAvgRev, getTopBranch } from "../lib/dataUtils";
 export default function InsightStrip({ data }: { data: FleetRow[] }) {
   const items = [
     { val: getActivePct(data), label: "Fleet utilisation rate" },
-    { val: getAvgRev(data), label: "Avg revenue per active vehicle" },
+    { val: getAvgRev(data), label: "Avg revenue per vehicle per month" },
     { val: getTopBranch(data), label: "Top fleet by revenue" },
   ];
 
