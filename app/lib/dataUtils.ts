@@ -54,6 +54,15 @@ export const parseDate = (dateStr: string): Date | null => {
   return null;
 };
 
+export const formatDateDDMMYYYY = (dateStr: string): string => {
+  const d = parseDate(dateStr);
+  if (!d) return dateStr || '—';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+
 export const getVehicleAgeYears = (dateStr: string): number => {
   const d = parseDate(dateStr);
   if (!d) return 0;

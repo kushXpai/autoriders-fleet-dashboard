@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { FleetRow } from "../lib/types";
-import { num, getVehicleAgeYears, aggregateByVehicle } from "../lib/dataUtils";
+import { num, getVehicleAgeYears, aggregateByVehicle, formatDateDDMMYYYY } from "../lib/dataUtils";
 
 const PAGE_SIZE = 20;
 
@@ -150,7 +150,9 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
                       {r.Model || "—"}
                     </span>
                   </td>
-                  <td className="px-3.5 py-2.5 text-xs" style={{ color: "var(--text2)" }}>{r["Registration Date"] || "—"}</td>
+                  <td className="px-3.5 py-2.5 text-xs" style={{ color: "var(--text2)" }}>
+                    {r["Registration Date"] ? formatDateDDMMYYYY(r["Registration Date"]) : "—"}
+                  </td>
                   <td className="px-3.5 py-2.5 text-xs" style={{ color: "var(--text2)" }}>
                     {r["Registration Date"] ? `${getVehicleAgeYears(r["Registration Date"]).toFixed(1)} yrs` : "—"}
                   </td>
