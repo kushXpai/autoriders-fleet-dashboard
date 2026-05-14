@@ -17,10 +17,13 @@ const CREDENTIALS: Record<string, { password: string; role: User['role'] }> = {
   pune: { password: '123456789', role: 'branch' },
   cochin: { password: '123456789', role: 'branch' },
   coimbatore: { password: '123456789', role: 'branch' },
-  indore: { password: '123456789', role: 'branch' },
   jaipur: { password: '123456789', role: 'branch' },
   vadodara: { password: '123456789', role: 'branch' },
   lucknow: { password: '123456789', role: 'branch' },
+  vizag: { password: '123456789', role: 'branch' },
+  surat: { password: '123456789', role: 'branch' },
+  bharuch: { password: '123456789', role: 'branch' },
+  vijaywada: { password: '123456789', role: 'branch' },
 };
 
 export function authenticate(username: string, password: string): User | null {

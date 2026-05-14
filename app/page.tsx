@@ -188,16 +188,18 @@ export default function Home() {
           <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--text)" }}>No data available</h2>
           <p className="text-sm mb-6" style={{ color: "var(--text3)" }}>
             {user?.role === "branch"
-              ? `No files found for ${user.username}. Upload your branch data to get started.`
+              ? `No data has been uploaded for ${user.username} yet. Please contact your admin.`
               : "No fleet data files found. Upload data to get started."}
           </p>
-          <button
-            onClick={() => setShowUpload(true)}
-            className="px-6 py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: "var(--accent)" }}
-          >
-            Upload Data
-          </button>
+          {(user?.role === "superadmin" || user?.role === "admin") && (
+            <button
+              onClick={() => setShowUpload(true)}
+              className="px-6 py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ background: "var(--accent)" }}
+            >
+              Upload Data
+            </button>
+          )}
         </div>
       </div>
     );
@@ -260,28 +262,32 @@ export default function Home() {
             {uniqueVehicleCount} vehicles · {uniqueMonths.length} month{uniqueMonths.length > 1 ? "s" : ""}
           </div>
           {/* <ExportPDF data={filteredData} /> */}
-          <button
-            onClick={handleReUpload}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            style={{
-              color: "var(--accent2)",
-              background: "var(--accent-glow)",
-              border: "1px solid rgba(59,130,246,0.2)",
-            }}
-          >
-            + Add New Data
-          </button>
-          <button
-            onClick={() => setShowManage(true)}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            style={{
-              color: "var(--text2)",
-              background: "var(--surface2)",
-              border: "1px solid var(--border2)",
-            }}
-          >
-            Manage Data
-          </button>
+          {(user?.role === "superadmin" || user?.role === "admin") && (
+            <>
+              <button
+                onClick={handleReUpload}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                style={{
+                  color: "var(--accent2)",
+                  background: "var(--accent-glow)",
+                  border: "1px solid rgba(59,130,246,0.2)",
+                }}
+              >
+                + Add New Data
+              </button>
+              <button
+                onClick={() => setShowManage(true)}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                style={{
+                  color: "var(--text2)",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border2)",
+                }}
+              >
+                Manage Data
+              </button>
+            </>
+          )}
           <UserMenu />
         </div>
       </header>
