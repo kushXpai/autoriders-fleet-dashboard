@@ -13,6 +13,7 @@ const BRANCHES = [
   "Ahmedabad", "Bangalore", "Chennai", "Cochin", "Coimbatore",
   "Delhi", "Hyderabad", "Indore", "Jaipur", "Kolkatta",
   "Lucknow", "Mumbai", "Novotel", "Pune", "Vadodara",
+  "Vizag", "Surat", "Bharuch", "Vijaywada", "Rajkot"
 ];
 
 interface Props {
