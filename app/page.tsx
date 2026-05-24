@@ -239,17 +239,6 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full"
-            style={{
-              color: "var(--text2)",
-              background: "var(--surface2)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            {allData.length} vehicles · {uniqueMonths.length} month
-            {uniqueMonths.length > 1 ? "s" : ""}
-          </div>
           <label
             className="cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
             style={{
@@ -259,7 +248,7 @@ export default function Home() {
               pointerEvents: addingMonth ? "none" : "auto",
             }}
           >
-            {addingMonth ? "Uploading…" : "+ Add Month"}
+            {addingMonth ? "Uploading…" : "+ Upload File"}
             <input
               type="file"
               accept=".csv,.xlsx,.xls"
@@ -272,17 +261,6 @@ export default function Home() {
               }}
             />
           </label>
-          <button
-            onClick={handleReUpload}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            style={{
-              color: "var(--text2)",
-              background: "var(--surface2)",
-              border: "1px solid var(--border2)",
-            }}
-          >
-            Clear View
-          </button>
           <UserMenu />
         </div>
       </header>
