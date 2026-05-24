@@ -40,3 +40,30 @@ export const getTopBranch = (data: FleetRow[]): string => {
   const top = Object.entries(byBranch).sort((a, b) => b[1] - a[1])[0];
   return top ? top[0] : '—';
 };
+
+export const getUniqueVehicleCount = (data: FleetRow[]): number => {
+  return new Set(data.map((r) => r["Registration Number"])).size;
+};
+
+export const aggregateByVehicle = (data: FleetRow[]): FleetRow[] => {
+  const map = new Map<string, FleetRow>();
+  data.forEach((r) => {
+    const key = r["Registration Number"];
+    if (!key) return;
+    if (!map.has(key)) {
+      map.set(key, { ...r });
+    } else {
+      const existing = map.get(key)!;
+      const add = (field: keyof FleetRow) => {
+        const a = parseFloat(existing[field] ?? "0") || 0;
+        const b = parseFloat(r[field] ?? "0") || 0;
+        (existing as unknown as Record<string, string>)[field] = String(a + b);
+      };
+      add("Total Revenue"); add("Total Cost"); add("Profit");
+      add("Fuel Cost"); add("Repair Cost"); add("Chauffeur Cost");
+      add("EMI"); add("Total KMS");
+      add("CD Revenue"); add("SD Revenue"); add("STR Revenue");
+    }
+  });
+  return [...map.values()];
+};
