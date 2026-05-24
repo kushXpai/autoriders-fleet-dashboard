@@ -1,7 +1,7 @@
 "use client";
 
 import type { FleetRow } from "../lib/types";
-import { num, getVehicleAgeYears, aggregateByVehicle } from "../lib/dataUtils";
+import { num } from "../lib/dataUtils";
 
 type Verdict = "keep" | "sell" | "watch";
 
@@ -55,9 +55,6 @@ function VehicleCard({ r, verdict, avgProfit, avgMargin, avgRepair }: {
       </div>
       <div className="flex gap-1 flex-wrap mb-2">
         <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent-glow)", color: "var(--accent2)" }}>{r.Model || "—"}</span>
-        <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ color: "var(--text3)", background: "var(--surface)", border: "1px solid var(--border)" }}>
-          {r["Registration Date"] ? `${getVehicleAgeYears(r["Registration Date"]).toFixed(1)} yrs old` : "—"}
-        </span>
         <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ color: "var(--text3)", background: "var(--surface)", border: "1px solid var(--border)" }}>{r._kms} km</span>
       </div>
       <div className="grid grid-cols-3 gap-1 mb-1.5">
@@ -82,15 +79,24 @@ function VehicleCard({ r, verdict, avgProfit, avgMargin, avgRepair }: {
 }
 
 export default function DecisionPanel({ data }: { data: FleetRow[] }) {
-  const agg = aggregateByVehicle(data);
-  const active = agg.filter(r => num(r["Total Revenue"]) > 0);
+  const active = data.filter(r => num(r["Total Revenue"]) > 0);
+  if (!active.length) {
+    return (
+      <div className="rounded-2xl p-5 mb-3.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <p className="text-sm" style={{ color: "var(--text3)" }}>No active vehicles to analyse.</p>
+      </div>
+    );
+  }
 
-  const avgProfit = active.length ? active.reduce((s, r) => s + num(r.Profit), 0) / active.length : 0;
-  const avgMargin = active.length ? active.reduce((s, r) => { const rev = num(r["Total Revenue"]); return s + (rev > 0 ? num(r.Profit) / rev : 0); }, 0) / active.length : 0;
-  const avgRepair = active.length ? active.reduce((s, r) => s + num(r["Repair Cost"]), 0) / active.length : 0;
+  const avgProfit = active.reduce((s, r) => s + num(r["Profit"]), 0) / active.length;
+  const avgMargin = active.reduce((s, r) => {
+    const rev = num(r["Total Revenue"]);
+    return s + (rev > 0 ? num(r["Profit"]) / rev : 0);
+  }, 0) / active.length;
+  const avgRepair = active.reduce((s, r) => s + num(r["Repair Cost"]), 0) / active.length;
 
   const scored: ScoredRow[] = active.map(r => {
-    const prof = num(r.Profit), rev = num(r["Total Revenue"]), repair = num(r["Repair Cost"]);
+    const prof = num(r["Profit"]), rev = num(r["Total Revenue"]), repair = num(r["Repair Cost"]);
     const emi = num(r.EMI);
     const kms = num(r["Total KMS"]);
     const margin = rev > 0 ? prof / rev : 0;
@@ -138,43 +144,6 @@ export default function DecisionPanel({ data }: { data: FleetRow[] }) {
     </span>
   );
 
-  const allDecisions = [
-    ...top.map(r => ({ reg: r["Registration Number"], model: r.Model, age: getVehicleAgeYears(r["Registration Date"]).toFixed(1), profit: r._prof, margin: (r._margin * 100).toFixed(1), repair: r._repair, kms: r._kms, verdict: "Keep" })),
-    ...sellCandidates.map(r => ({ reg: r["Registration Number"], model: r.Model, age: getVehicleAgeYears(r["Registration Date"]).toFixed(1), profit: r._prof, margin: (r._margin * 100).toFixed(1), repair: r._repair, kms: r._kms, verdict: "Sell" })),
-    ...watch.map(r => ({ reg: r["Registration Number"], model: r.Model, age: getVehicleAgeYears(r["Registration Date"]).toFixed(1), profit: r._prof, margin: (r._margin * 100).toFixed(1), repair: r._repair, kms: r._kms, verdict: "Watch" })),
-  ];
-
-  function downloadDecisionCSV() {
-    const headers = "Registration Number,Model,Age (yrs),Profit,Margin %,Repair Cost,KMS,Verdict";
-    const rows = allDecisions.map(d => `${d.reg},${d.model},${d.age},${d.profit},${d.margin},${d.repair},${d.kms},${d.verdict}`);
-    const csv = [headers, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "keep-sell-advisor.csv"; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function downloadDecisionExcel() {
-    import("xlsx").then(XLSX => {
-      const ws = XLSX.utils.json_to_sheet(allDecisions.map(d => ({
-        "Registration Number": d.reg, Model: d.model, "Age (yrs)": d.age,
-        Profit: d.profit, "Margin %": d.margin, "Repair Cost": d.repair, KMS: d.kms, Verdict: d.verdict,
-      })));
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Advisor");
-      XLSX.writeFile(wb, "keep-sell-advisor.xlsx");
-    });
-  }
-
-  if (!active.length) {
-    return (
-      <div className="rounded-2xl p-5 mb-3.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-        <p className="text-sm" style={{ color: "var(--text3)" }}>No active vehicles to analyse.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="rounded-2xl p-5 mb-3.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
@@ -186,25 +155,10 @@ export default function DecisionPanel({ data }: { data: FleetRow[] }) {
             Data-driven signals to help decide which vehicles to retain or dispose
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap items-center">
+        <div className="flex gap-2 flex-wrap">
           <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "var(--green-dim)", color: "var(--green)", border: "1px solid rgba(16,185,129,0.2)" }}>Keep</span>
           <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "rgba(220,38,38,0.1)", color: "#dc2626", border: "1px solid rgba(220,38,38,0.2)" }}>Consider Selling</span>
           <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "rgba(217,119,6,0.1)", color: "#d97706", border: "1px solid rgba(217,119,6,0.2)" }}>Watch</span>
-          <div className="w-px h-4" style={{ background: "var(--border)" }} />
-          <button
-            onClick={downloadDecisionCSV}
-            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
-            style={{ color: "var(--text2)", background: "var(--surface2)", border: "1px solid var(--border2)" }}
-          >
-            ↓ CSV
-          </button>
-          <button
-            onClick={downloadDecisionExcel}
-            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
-            style={{ color: "var(--text2)", background: "var(--surface2)", border: "1px solid var(--border2)" }}
-          >
-            ↓ Excel
-          </button>
         </div>
       </div>
 

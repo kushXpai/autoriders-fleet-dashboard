@@ -4,16 +4,22 @@ import { useState, useRef, useEffect } from "react";
 
 interface Props {
   branches: string[];
-  months: string[];
-  financialYears: string[];
+  financialYears: string[];      // e.g. ["FY2025-26", "FY2024-25"]
+  months: string[];              // e.g. ["April|2025", "May|2025", ... "March|2026"]
   models: string[];
   filterBranch: string[];
-  filterMonth: string[];
-  filterFY: string[];
+  filterFY: string[];            // e.g. ["FY2025-26"]
+  filterMonth: string[];         // e.g. ["April|2025", "March|2026"]
   filterModel: string;
   filterStatus: string;
   totalCount: number;
-  onChange: (branch: string[], month: string[], fy: string[], model: string, status: string) => void;
+  onChange: (
+    branch: string[],
+    fy: string[],
+    month: string[],
+    model: string,
+    status: string
+  ) => void;
 }
 
 function MultiSelect({
@@ -21,11 +27,13 @@ function MultiSelect({
   options,
   selected,
   onChange,
+  displayFn,
 }: {
   label: string;
   options: string[];
   selected: string[];
   onChange: (val: string[]) => void;
+  displayFn?: (val: string) => string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -39,19 +47,20 @@ function MultiSelect({
   }, []);
 
   const toggle = (val: string) => {
-    if (selected.includes(val)) onChange(selected.filter(v => v !== val));
+    if (selected.includes(val)) onChange(selected.filter((v) => v !== val));
     else onChange([...selected, val]);
   };
 
-  const displayText = selected.length === 0 ? label : `${label} (${selected.length})`;
+  const displayText =
+    selected.length === 0 ? label : `${label} (${selected.length})`;
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         className="fleet-select"
-        onClick={() => setOpen(o => !o)}
-        style={{ minWidth: 120, textAlign: "left" }}
+        onClick={() => setOpen((o) => !o)}
+        style={{ minWidth: 130, textAlign: "left" }}
       >
         {displayText}
       </button>
@@ -61,7 +70,7 @@ function MultiSelect({
           style={{
             background: "var(--surface)",
             border: "1px solid var(--border)",
-            minWidth: 160,
+            minWidth: 170,
           }}
         >
           {selected.length > 0 && (
@@ -74,7 +83,7 @@ function MultiSelect({
               Clear all
             </button>
           )}
-          {options.map(opt => (
+          {options.map((opt) => (
             <label
               key={opt}
               className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-gray-100"
@@ -86,7 +95,7 @@ function MultiSelect({
                 onChange={() => toggle(opt)}
                 className="rounded"
               />
-              {opt}
+              {displayFn ? displayFn(opt) : opt}
             </label>
           ))}
         </div>
@@ -97,12 +106,12 @@ function MultiSelect({
 
 export default function FilterBar({
   branches,
-  months,
   financialYears,
+  months,
   models,
   filterBranch,
-  filterMonth,
   filterFY,
+  filterMonth,
   filterModel,
   filterStatus,
   totalCount,
@@ -111,10 +120,7 @@ export default function FilterBar({
   return (
     <div
       className="rounded-2xl px-5 py-3.5 flex gap-3.5 items-center flex-wrap mb-5"
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-      }}
+      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
     >
       <span
         className="text-xs font-semibold uppercase tracking-widest"
@@ -122,36 +128,55 @@ export default function FilterBar({
       >
         Filters
       </span>
-      <div
-        className="w-px h-6"
-        style={{ background: "var(--border)" }}
-      />
+      <div className="w-px h-6" style={{ background: "var(--border)" }} />
 
+      {/* Branch */}
       <MultiSelect
         label="All Branches"
         options={branches}
         selected={filterBranch}
-        onChange={(val) => onChange(val, filterMonth, filterFY, filterModel, filterStatus)}
+        onChange={(val) =>
+          onChange(val, filterFY, filterMonth, filterModel, filterStatus)
+        }
       />
 
-      <MultiSelect
-        label="All Months"
-        options={months}
-        selected={filterMonth}
-        onChange={(val) => onChange(filterBranch, val, filterFY, filterModel, filterStatus)}
-      />
-
+      {/* Financial Year */}
       <MultiSelect
         label="All FY"
         options={financialYears}
         selected={filterFY}
-        onChange={(val) => onChange(filterBranch, filterMonth, val, filterModel, filterStatus)}
+        onChange={(val) =>
+          onChange(filterBranch, val, filterMonth, filterModel, filterStatus)
+        }
       />
 
+      {/* Month — stored as "Month|Year", displayed as "Apr-25" */}
+      <MultiSelect
+        label="All Months"
+        options={months}
+        selected={filterMonth}
+        onChange={(val) =>
+          onChange(filterBranch, filterFY, val, filterModel, filterStatus)
+        }
+        displayFn={(val) => {
+          const [m, y] = val.split("|");
+          return `${m.substring(0, 3)}-${y.slice(2)}`;
+        }}
+      />
+
+      {/* Model */}
       <select
         className="fleet-select"
         value={filterModel}
-        onChange={(e) => onChange(filterBranch, filterMonth, filterFY, e.target.value, filterStatus)}
+        onChange={(e) =>
+          onChange(
+            filterBranch,
+            filterFY,
+            filterMonth,
+            e.target.value,
+            filterStatus
+          )
+        }
       >
         <option value="">All Models</option>
         {models.map((m) => (
@@ -161,10 +186,19 @@ export default function FilterBar({
         ))}
       </select>
 
+      {/* Vehicle status */}
       <select
         className="fleet-select"
         value={filterStatus}
-        onChange={(e) => onChange(filterBranch, filterMonth, filterFY, filterModel, e.target.value)}
+        onChange={(e) =>
+          onChange(
+            filterBranch,
+            filterFY,
+            filterMonth,
+            filterModel,
+            e.target.value
+          )
+        }
       >
         <option value="">All Vehicles</option>
         <option value="active">Revenue Generating</option>

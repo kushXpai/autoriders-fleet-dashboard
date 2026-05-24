@@ -1,216 +1,204 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import UserMenu from "./components/UserMenu";
 import FileUpload from "./components/FileUpload";
-import DataManager from "./components/DataManager";
 import FilterBar from "./components/FilterBar";
 import KpiGrid from "./components/KpiGrid";
 import InsightStrip from "./components/InsightStrip";
 import Charts from "./components/Charts";
 import DecisionPanel from "./components/DecisionPanel";
 import VehicleTable from "./components/VehicleTable";
-import VehicleTrend from "./components/VehicleTrend";
 import PnLTable from "./components/PnLTable";
-import ExportPDF from "./components/ExportPDF";
 import type { FleetRow } from "./lib/types";
-import { num, getFinancialYear, getUniqueVehicleCount } from "./lib/dataUtils";
-import { getStoredUser } from "./lib/auth";
+import { num } from "./lib/dataUtils";
 
 const MONTH_ORDER = [
   "April", "May", "June", "July", "August", "September",
   "October", "November", "December", "January", "February", "March",
 ];
 
+// April–December belong to the FY that starts that year.
+// January–March belong to the FY that started the previous year.
+function getFYStart(month: string, year: string): number {
+  const y = parseInt(year, 10) || 0;
+  const idx = MONTH_ORDER.indexOf(month); // 0=Apr … 8=Dec, 9=Jan … 11=Mar
+  return idx <= 8 ? y : y - 1;
+}
+
+function fyLabel(fyStart: number): string {
+  return `FY${fyStart}-${String(fyStart + 1).slice(2)}`;
+}
+
 export default function Home() {
-  const router = useRouter();
   const [allData, setAllData] = useState<FleetRow[]>([]);
   const [filterBranch, setFilterBranch] = useState<string[]>([]);
-  const [filterMonth, setFilterMonth] = useState<string[]>([]);
   const [filterFY, setFilterFY] = useState<string[]>([]);
+  const [filterMonth, setFilterMonth] = useState<string[]>([]); // "Month|Year"
   const [filterModel, setFilterModel] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [showUpload, setShowUpload] = useState(false);
-  const [showManage, setShowManage] = useState(false);
-
-  const user = typeof window !== "undefined" ? getStoredUser() : null;
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [addingMonth, setAddingMonth] = useState(false);
 
   useEffect(() => {
-    if (!getStoredUser()) {
-      router.push("/login");
-      return;
-    }
-    fetchAllData();
-  }, [router]);
+    fetch("/api/data")
+      .then((r) => r.json())
+      .then(({ data }) => {
+        if (data && data.length > 0) setAllData(data);
+      })
+      .catch(console.error)
+      .finally(() => setInitialLoading(false));
+  }, []);
 
-  async function fetchAllData() {
-    setLoading(true);
-    try {
-      const currentUser = getStoredUser();
-      const role = currentUser?.role || "branch";
-      const branch = currentUser?.username || "";
-      const res = await fetch(`/api/data?role=${role}&branch=${encodeURIComponent(branch)}`);
-      const json = await res.json();
-      if (!json.files || !json.files.length) {
-        setAllData([]);
-        setLoading(false);
-        return;
-      }
+  // ── Derived filter options ────────────────────────────────────────────────
 
-      const XLSX = await import("xlsx");
-      const allRows: FleetRow[] = [];
+  const branches = useMemo(
+    () => [...new Set(allData.map((r) => r.Branch).filter(Boolean))].sort(),
+    [allData]
+  );
 
-      for (const file of json.files) {
-        const dlRes = await fetch(file.download_url);
-        const buf = await dlRes.arrayBuffer();
-        const workbook = XLSX.read(buf, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<FleetRow>(sheet, { defval: "" });
-        const valid = rows.filter(r => r["Registration Number"] && String(r["Registration Number"]).trim());
-        allRows.push(...valid);
-      }
+  // Unique FY labels sorted ascending: ["FY2024-25", "FY2025-26", ...]
+  const financialYears = useMemo(() => {
+    const fySet = new Set<string>();
+    allData.forEach((r) => {
+      if (r.Month && r.Year) fySet.add(fyLabel(getFYStart(r.Month, r.Year)));
+    });
+    return [...fySet].sort();
+  }, [allData]);
 
-      setAllData(allRows);
-    } catch (err) {
-      console.error("Failed to fetch data:", err);
-    }
-    setLoading(false);
-  }
+  // Unique "Month|Year" pairs sorted in FY order (Apr-25, May-25 … Mar-26, Apr-26 …)
+  const months = useMemo(() => {
+    const pairs = new Set<string>();
+    allData.forEach((r) => {
+      if (r.Month && r.Year) pairs.add(`${r.Month}|${r.Year}`);
+    });
+    return [...pairs].sort((a, b) => {
+      const [am, ay] = a.split("|");
+      const [bm, by] = b.split("|");
+      const aFY = getFYStart(am, ay);
+      const bFY = getFYStart(bm, by);
+      if (aFY !== bFY) return aFY - bFY;
+      return MONTH_ORDER.indexOf(am) - MONTH_ORDER.indexOf(bm);
+    });
+  }, [allData]);
 
-  const branches = useMemo(() => [...new Set(allData.map(r => r.Branch).filter(Boolean))].sort(), [allData]);
-  const months = useMemo(() => [...new Set(allData.map(r => r.Month).filter(Boolean))].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b)), [allData]);
-  const financialYears = useMemo(() => [...new Set(allData.map(r => getFinancialYear(r.Month, r.Year)).filter(Boolean))].sort(), [allData]);
-  const models = useMemo(() => [...new Set(allData.map(r => r.Model).filter(Boolean))].sort(), [allData]);
+  const models = useMemo(
+    () => [...new Set(allData.map((r) => r.Model).filter(Boolean))].sort(),
+    [allData]
+  );
+
+  // ── Filtered data ─────────────────────────────────────────────────────────
 
   const filteredData = useMemo(() => {
-    return allData.filter(r => {
-      if (filterBranch.length > 0 && !filterBranch.includes(r.Branch)) return false;
-      if (filterMonth.length > 0 && !filterMonth.includes(r.Month)) return false;
-      if (filterFY.length > 0 && !filterFY.includes(getFinancialYear(r.Month, r.Year))) return false;
+    return allData.filter((r) => {
+      if (filterBranch.length > 0 && !filterBranch.includes(r.Branch))
+        return false;
+
+      // FY filter — check if the row's month/year belongs to any selected FY
+      if (filterFY.length > 0) {
+        const rowFY = fyLabel(getFYStart(r.Month, r.Year));
+        if (!filterFY.includes(rowFY)) return false;
+      }
+
+      // Month filter — stored as "Month|Year"
+      if (filterMonth.length > 0 && !filterMonth.includes(`${r.Month}|${r.Year}`))
+        return false;
+
       if (filterModel && r.Model !== filterModel) return false;
-      if (filterStatus === "active" && !(num(r["Total Revenue"]) > 0)) return false;
+      if (filterStatus === "active" && !(num(r["Total Revenue"]) > 0))
+        return false;
       if (filterStatus === "idle" && num(r["Total Revenue"]) > 0) return false;
+
       return true;
     });
-  }, [allData, filterBranch, filterMonth, filterFY, filterModel, filterStatus]);
+  }, [allData, filterBranch, filterFY, filterMonth, filterModel, filterStatus]);
 
-  const handleFilterChange = (branch: string[], month: string[], fy: string[], model: string, status: string) => {
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleFilterChange = (
+    branch: string[],
+    fy: string[],
+    month: string[],
+    model: string,
+    status: string
+  ) => {
     setFilterBranch(branch);
-    setFilterMonth(month);
     setFilterFY(fy);
+    setFilterMonth(month);
     setFilterModel(model);
     setFilterStatus(status);
   };
 
-  const handleDataLoaded = useCallback(async (_data: FleetRow[], file: File, filename: string) => {
-    if (!user) return;
-    setUploading(true);
+  const resetFilters = () => {
+    setFilterBranch([]);
+    setFilterFY([]);
+    setFilterMonth([]);
+    setFilterModel("");
+    setFilterStatus("");
+  };
 
-    const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(
-      new Uint8Array(arrayBuffer).reduce((str, byte) => str + String.fromCharCode(byte), "")
-    );
-
-    try {
-      const res = await fetch("/api/data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename, content: base64, username: user.username }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setShowUpload(false);
-        await fetchAllData();
-      } else {
-        alert("Upload failed: " + (json.error || "Unknown error"));
-      }
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("Upload failed. Please try again.");
-    }
-    setUploading(false);
-  }, [user]);
-
-  const handleReUpload = useCallback(() => {
-    setShowUpload(true);
+  const handleDataLoaded = useCallback((data: FleetRow[]) => {
+    setAllData(data);
+    resetFilters();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-screen" style={{ background: "var(--bg)" }}>
-        <div className="spinner mb-4" />
-        <p className="text-sm" style={{ color: "var(--text3)" }}>Loading fleet data...</p>
-      </div>
-    );
-  }
+  const handleAddMonth = useCallback(async (file: File) => {
+    setAddingMonth(true);
+    try {
+      const formData = new FormData();
+      formData.append("files", file);
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json();
+        alert("Upload failed: " + (err.error || "Unknown error"));
+        return;
+      }
+      const dataRes = await fetch("/api/data");
+      const { data } = await dataRes.json();
+      if (data) {
+        setAllData(data);
+        resetFilters();
+      }
+    } catch (err) {
+      alert("Error adding month: " + (err as Error).message);
+    } finally {
+      setAddingMonth(false);
+    }
+  }, []);
 
-  if (showUpload) {
+  const handleReUpload = useCallback(() => {
+    setAllData([]);
+  }, []);
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  if (initialLoading) {
     return (
-      <div className="min-h-screen" style={{ background: "var(--bg)" }}>
-        <div className="flex items-center justify-between px-8 py-4">
-          <button
-            onClick={() => setShowUpload(false)}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            style={{ color: "var(--text2)", background: "var(--surface2)", border: "1px solid var(--border2)" }}
-          >
-            ← Back to Dashboard
-          </button>
-          <UserMenu />
+      <div
+        className="flex flex-1 flex-col items-center justify-center min-h-screen"
+        style={{ background: "var(--bg)" }}
+      >
+        <div className="text-sm font-medium" style={{ color: "var(--text3)" }}>
+          Loading fleet data…
         </div>
-        <FileUpload onDataLoaded={handleDataLoaded} uploading={uploading} />
       </div>
-    );
-  }
-
-  if (showManage) {
-    return (
-      <DataManager
-        onClose={() => setShowManage(false)}
-        onDeleted={() => fetchAllData()}
-      />
     );
   }
 
   if (!allData.length) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-screen" style={{ background: "var(--bg)" }}>
-        <div className="absolute top-0 right-0 p-4">
-          <UserMenu />
-        </div>
-        <div className="text-center">
-          <svg className="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="1.5">
-            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-            <polyline points="13 2 13 9 20 9" />
-          </svg>
-          <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--text)" }}>No data available</h2>
-          <p className="text-sm mb-6" style={{ color: "var(--text3)" }}>
-            {user?.role === "branch"
-              ? `No data has been uploaded for ${user.username} yet. Please contact your admin.`
-              : "No fleet data files found. Upload data to get started."}
-          </p>
-          {(user?.role === "superadmin" || user?.role === "admin") && (
-            <button
-              onClick={() => setShowUpload(true)}
-              className="px-6 py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: "var(--accent)" }}
-            >
-              Upload Data
-            </button>
-          )}
-        </div>
-      </div>
-    );
+    return <FileUpload onDataLoaded={handleDataLoaded} />;
   }
 
-  const uniqueMonths = [...new Set(allData.map(r => `${r.Month} ${r.Year}`))];
-  const uniqueVehicleCount = getUniqueVehicleCount(allData);
+  const uniqueMonths = [...new Set(allData.map((r) => `${r.Month} ${r.Year}`))];
 
   return (
-    <div className="flex flex-col flex-1 min-h-screen" style={{ background: "var(--bg)" }}>
-      {/* Header */}
+    <div
+      className="flex flex-col flex-1 min-h-screen"
+      style={{ background: "var(--bg)" }}
+    >
       <header
         className="flex items-center justify-between px-8 sticky top-0 z-50"
         style={{
@@ -250,7 +238,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <div
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full"
             style={{
@@ -259,52 +247,58 @@ export default function Home() {
               border: "1px solid var(--border)",
             }}
           >
-            {uniqueVehicleCount} vehicles · {uniqueMonths.length} month{uniqueMonths.length > 1 ? "s" : ""}
+            {allData.length} vehicles · {uniqueMonths.length} month
+            {uniqueMonths.length > 1 ? "s" : ""}
           </div>
-          {/* <ExportPDF data={filteredData} /> */}
-          {(user?.role === "superadmin" || user?.role === "admin") && (
-            <>
-              <button
-                onClick={handleReUpload}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                style={{
-                  color: "var(--accent2)",
-                  background: "var(--accent-glow)",
-                  border: "1px solid rgba(59,130,246,0.2)",
-                }}
-              >
-                + Add New Data
-              </button>
-              <button
-                onClick={() => setShowManage(true)}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                style={{
-                  color: "var(--text2)",
-                  background: "var(--surface2)",
-                  border: "1px solid var(--border2)",
-                }}
-              >
-                Manage Data
-              </button>
-            </>
-          )}
+          <label
+            className="cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            style={{
+              color: addingMonth ? "var(--text3)" : "var(--accent2)",
+              background: "var(--accent-glow)",
+              border: "1px solid rgba(59,130,246,0.2)",
+              pointerEvents: addingMonth ? "none" : "auto",
+            }}
+          >
+            {addingMonth ? "Uploading…" : "+ Add Month"}
+            <input
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              className="hidden"
+              disabled={addingMonth}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleAddMonth(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          <button
+            onClick={handleReUpload}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            style={{
+              color: "var(--text2)",
+              background: "var(--surface2)",
+              border: "1px solid var(--border2)",
+            }}
+          >
+            Clear View
+          </button>
           <UserMenu />
         </div>
       </header>
 
-      {/* Main */}
       <main className="max-w-screen-2xl mx-auto w-full px-8 py-6 pb-10 fade-in main-pad">
         <FilterBar
           branches={branches}
-          months={months}
           financialYears={financialYears}
+          months={months}
           models={models}
           filterBranch={filterBranch}
-          filterMonth={filterMonth}
           filterFY={filterFY}
+          filterMonth={filterMonth}
           filterModel={filterModel}
           filterStatus={filterStatus}
-          totalCount={getUniqueVehicleCount(filteredData)}
+          totalCount={filteredData.length}
           onChange={handleFilterChange}
         />
         <KpiGrid data={filteredData} />
@@ -312,7 +306,6 @@ export default function Home() {
         <PnLTable data={filteredData} />
         <Charts data={filteredData} />
         <DecisionPanel data={filteredData} />
-        <VehicleTrend data={filteredData} />
         <VehicleTable data={filteredData} />
       </main>
     </div>

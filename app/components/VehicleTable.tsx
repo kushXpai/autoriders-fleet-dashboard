@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { FleetRow } from "../lib/types";
-import { num, getVehicleAgeYears, aggregateByVehicle, formatDateDDMMYYYY } from "../lib/dataUtils";
+import { num } from "../lib/dataUtils";
 
 const PAGE_SIZE = 20;
 
@@ -40,8 +40,6 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(1);
 
-  const aggregated = useMemo(() => aggregateByVehicle(data), [data]);
-
   const handleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => (d === 1 ? -1 : 1));
     else { setSortCol(col); setSortDir(-1); }
@@ -50,13 +48,12 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return aggregated.filter(r =>
+    return data.filter(r =>
       !q ||
       (r["Registration Number"] || "").toLowerCase().includes(q) ||
-      (r.Model || "").toLowerCase().includes(q) ||
-      (r["Registration Date"] || "").toLowerCase().includes(q)
+      (r.Model || "").toLowerCase().includes(q)
     );
-  }, [aggregated, search]);
+  }, [data, search]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -96,7 +93,7 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
           <input
             className="table-search"
             type="text"
-            placeholder="Search reg. no, model, fleet…"
+            placeholder="Search registration number, model…"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
           />
@@ -121,10 +118,8 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <Th label="Reg. No" col="Registration Number" />
+              <Th label="Reg. Number" col="Registration Number" />
               <Th label="Model" col="Model" />
-              <Th label="Reg. Date" col="Registration Date" />
-              <Th label="Age" col="Registration Date" />
               <Th label="Total KMS" col="Total KMS" />
               <Th label="Revenue" col="Total Revenue" />
               <Th label="Cost" col="Total Cost" />
@@ -134,7 +129,7 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
           </thead>
           <tbody>
             {slice.map((r, i) => {
-              const rev = num(r["Total Revenue"]), prof = num(r.Profit), cost = num(r["Total Cost"]);
+              const rev = num(r["Total Revenue"]), prof = num(r["Profit"]), cost = num(r["Total Cost"]);
               const margin = r["Profit %"];
               const maxRev = 250000;
               const barW = Math.max(2, Math.min(80, rev / maxRev * 80));
@@ -149,12 +144,6 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "var(--accent-glow)", color: "var(--accent2)" }}>
                       {r.Model || "—"}
                     </span>
-                  </td>
-                  <td className="px-3.5 py-2.5 text-xs" style={{ color: "var(--text2)" }}>
-                    {r["Registration Date"] ? formatDateDDMMYYYY(r["Registration Date"]) : "—"}
-                  </td>
-                  <td className="px-3.5 py-2.5 text-xs" style={{ color: "var(--text2)" }}>
-                    {r["Registration Date"] ? `${getVehicleAgeYears(r["Registration Date"]).toFixed(1)} yrs` : "—"}
                   </td>
                   <td className="px-3.5 py-2.5 text-xs" style={{ color: "var(--text2)" }}>{num(r["Total KMS"]).toLocaleString("en-IN")}</td>
                   <td className="px-3.5 py-2.5 text-xs" style={{ color: "var(--text2)" }}>

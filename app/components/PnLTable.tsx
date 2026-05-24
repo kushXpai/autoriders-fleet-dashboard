@@ -56,71 +56,6 @@ function groupDataByMonth(data: FleetRow[]): MonthData[] {
   });
 }
 
-function DownloadButtons({ summaries, yearly }: { summaries: Summary[]; yearly: Omit<Summary, 'year' | 'month'> }) {
-  function downloadCSV() {
-    const headers = ["Category", ...summaries.map(m => `${m.month.substring(0, 3)}-${m.year.slice(2)}`), "YEARLY"];
-    const rows = [
-      ["CD Revenue", ...summaries.map(m => fmt(m.cdRev)), fmt(yearly.cdRev)],
-      ["SD Revenue", ...summaries.map(m => fmt(m.sdRev)), fmt(yearly.sdRev)],
-      ["STR Revenue", ...summaries.map(m => fmt(m.strRev)), fmt(yearly.strRev)],
-      ["Total Revenue", ...summaries.map(m => fmt(m.totalRev)), fmt(yearly.totalRev)],
-      ["Fuel", ...summaries.map(m => fmt(m.fuel)), fmt(yearly.fuel)],
-      ["Repairs", ...summaries.map(m => fmt(m.repair)), fmt(yearly.repair)],
-      ["Chauffeur", ...summaries.map(m => fmt(m.chauffeur)), fmt(yearly.chauffeur)],
-      ["EMI", ...summaries.map(m => fmt(m.emi)), fmt(yearly.emi)],
-      ["Total Expenses", ...summaries.map(m => fmt(m.totalCost)), fmt(yearly.totalCost)],
-      ["Profit", ...summaries.map(m => fmt(m.profit)), fmt(yearly.profit)],
-    ];
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "pnl-summary.csv"; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function downloadExcel() {
-    import("xlsx").then(XLSX => {
-      const headers = ["Category", ...summaries.map(m => `${m.month.substring(0, 3)}-${m.year.slice(2)}`), "YEARLY"];
-      const rows = [
-        ["CD Revenue", ...summaries.map(m => +fmt(m.cdRev)), +fmt(yearly.cdRev)],
-        ["SD Revenue", ...summaries.map(m => +fmt(m.sdRev)), +fmt(yearly.sdRev)],
-        ["STR Revenue", ...summaries.map(m => +fmt(m.strRev)), +fmt(yearly.strRev)],
-        ["Total Revenue", ...summaries.map(m => +fmt(m.totalRev)), +fmt(yearly.totalRev)],
-        ["Fuel", ...summaries.map(m => +fmt(m.fuel)), +fmt(yearly.fuel)],
-        ["Repairs", ...summaries.map(m => +fmt(m.repair)), +fmt(yearly.repair)],
-        ["Chauffeur", ...summaries.map(m => +fmt(m.chauffeur)), +fmt(yearly.chauffeur)],
-        ["EMI", ...summaries.map(m => +fmt(m.emi)), +fmt(yearly.emi)],
-        ["Total Expenses", ...summaries.map(m => +fmt(m.totalCost)), +fmt(yearly.totalCost)],
-        ["Profit", ...summaries.map(m => +fmt(m.profit)), +fmt(yearly.profit)],
-      ];
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "P&L");
-      XLSX.writeFile(wb, "pnl-summary.xlsx");
-    });
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        onClick={downloadCSV}
-        className="text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
-        style={{ color: "var(--text2)", background: "var(--surface2)", border: "1px solid var(--border2)" }}
-      >
-        ↓ CSV
-      </button>
-      <button
-        onClick={downloadExcel}
-        className="text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
-        style={{ color: "var(--text2)", background: "var(--surface2)", border: "1px solid var(--border2)" }}
-      >
-        ↓ Excel
-      </button>
-    </div>
-  );
-}
-
 export default function PnLTable({ data }: { data: FleetRow[] }) {
   const allMonths = groupDataByMonth(data);
 
@@ -141,7 +76,7 @@ export default function PnLTable({ data }: { data: FleetRow[] }) {
     const chauffeur = mData.reduce((s, r) => s + num(r["Chauffeur Cost"]), 0);
     const emi = mData.reduce((s, r) => s + num(r.EMI), 0);
     const totalCost = mData.reduce((s, r) => s + num(r["Total Cost"]), 0);
-    const profit = mData.reduce((s, r) => s + num(r.Profit), 0);
+    const profit = mData.reduce((s, r) => s + num(r["Profit"]), 0);
     return { year, month, cdRev, sdRev, strRev, totalRev, fuel, repair, chauffeur, emi, totalCost, profit };
   });
 
@@ -161,49 +96,25 @@ export default function PnLTable({ data }: { data: FleetRow[] }) {
   const colCount = summaries.length + 3;
 
   const th: React.CSSProperties = {
-    padding: "10px 16px",
-    fontSize: "11px",
-    fontWeight: 600,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    color: "var(--text3)",
-    background: "var(--surface2)",
-    borderBottom: "1px solid var(--border)",
-    whiteSpace: "nowrap",
-    textAlign: "right",
+    padding: "10px 16px", fontSize: "11px", fontWeight: 600,
+    textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--text3)",
+    background: "var(--surface2)", borderBottom: "1px solid var(--border)",
+    whiteSpace: "nowrap", textAlign: "right",
   };
-
   const td: React.CSSProperties = {
-    padding: "9px 16px",
-    fontSize: "12px",
-    color: "var(--text2)",
-    borderBottom: "1px solid var(--border)",
-    whiteSpace: "nowrap",
-    textAlign: "right",
-    fontVariantNumeric: "tabular-nums",
+    padding: "9px 16px", fontSize: "12px", color: "var(--text2)",
+    borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
+    textAlign: "right", fontVariantNumeric: "tabular-nums",
   };
-
   const tdB: React.CSSProperties = { ...td, fontWeight: 700, color: "var(--text)" };
-
   const label: React.CSSProperties = {
-    ...td,
-    textAlign: "left",
-    fontWeight: 500,
-    color: "var(--text)",
-    paddingLeft: "20px",
-    minWidth: "200px",
+    ...td, textAlign: "left", fontWeight: 500, color: "var(--text)",
+    paddingLeft: "20px", minWidth: "200px",
   };
-
   const section: React.CSSProperties = {
-    padding: "8px 16px",
-    fontSize: "11px",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    color: "var(--accent2)",
-    background: "var(--accent-glow)",
-    borderBottom: "1px solid var(--border)",
-    textAlign: "left",
+    padding: "8px 16px", fontSize: "11px", fontWeight: 700,
+    textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--accent2)",
+    background: "var(--accent-glow)", borderBottom: "1px solid var(--border)", textAlign: "left",
   };
 
   const Row = ({ name, values, yearlyVal, pct, isBold, bg }: {
@@ -219,16 +130,11 @@ export default function PnLTable({ data }: { data: FleetRow[] }) {
 
   return (
     <>
-      {/* P&L Table */}
       <div className="rounded-2xl overflow-hidden mb-3.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
-          <div>
-            <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>Monthly P&L Summary</div>
-            <div className="text-xs mt-0.5" style={{ color: "var(--text3)" }}>All values in ₹ Lakhs</div>
-          </div>
-          <DownloadButtons summaries={summaries} yearly={yearly} />
+        <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>Monthly P&L Summary</div>
+          <div className="text-xs mt-0.5" style={{ color: "var(--text3)" }}>All values in ₹ Lakhs</div>
         </div>
-
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <colgroup>
@@ -298,14 +204,12 @@ export default function PnLTable({ data }: { data: FleetRow[] }) {
         </div>
       </div>
 
-      {/* MoM % Change Table */}
       {summaries.length > 1 && (
         <div className="rounded-2xl overflow-hidden mb-3.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
             <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>Month-on-Month % Change</div>
             <div className="text-xs mt-0.5" style={{ color: "var(--text3)" }}>Percentage change from previous month</div>
           </div>
-
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
               <colgroup>
@@ -351,23 +255,13 @@ function ChangeRow({ label: name, summaries, field, invert, bold }: {
   label: string; summaries: Summary[]; field: keyof Summary; invert?: boolean; bold?: boolean;
 }) {
   const td: React.CSSProperties = {
-    padding: "9px 16px",
-    fontSize: "12px",
-    borderBottom: "1px solid var(--border)",
-    whiteSpace: "nowrap",
-    textAlign: "right",
-    fontVariantNumeric: "tabular-nums",
+    padding: "9px 16px", fontSize: "12px", borderBottom: "1px solid var(--border)",
+    whiteSpace: "nowrap", textAlign: "right", fontVariantNumeric: "tabular-nums",
     fontWeight: bold ? 700 : 500,
   };
-
   const labelSt: React.CSSProperties = {
-    ...td,
-    textAlign: "left",
-    color: "var(--text)",
-    paddingLeft: "20px",
-    minWidth: "200px",
+    ...td, textAlign: "left", color: "var(--text)", paddingLeft: "20px", minWidth: "200px",
   };
-
   return (
     <tr>
       <td style={labelSt}>{name}</td>
