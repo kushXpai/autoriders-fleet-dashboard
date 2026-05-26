@@ -15,7 +15,8 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 function buildKeys(row: Record<string, string>, rowIndex: number) {
-  const branch = (row["Branch"] || "Unknown").trim();
+  // Branch must be lowercase to match auth.ts credentials (e.g. "bangalore" not "BANGALORE")
+  const branch = (row["Branch"] || "Unknown").trim().toLowerCase();
   const year = (row["Year"] || "Unknown").trim();
   const month = (row["Month"] || "Unknown").trim();
   const regNo = (row["Registration Number"] || "").replace(/[^a-zA-Z0-9\-]/g, "_");
@@ -45,7 +46,7 @@ async function alreadyExists(branch: string, month: string, year: string): Promi
         ":pk": `BRANCH#${branch}`,
         ":prefix": `${year}#${month}#`,
       },
-      Limit: 1, // we only need to know if at least one row exists
+      Limit: 1,
       Select: "COUNT",
     })
   );
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     let totalInserted = 0;
     const errors: string[] = [];
-    const duplicates: string[] = []; // month+branch combos that already exist
+    const duplicates: string[] = [];
 
     for (const file of files) {
       try {
@@ -90,12 +91,15 @@ export async function POST(request: NextRequest) {
           raw: false,
         });
 
-        // Normalize all text fields to uppercase to prevent "Etios" vs "ETIOS" duplicates
+        // Normalize text fields to uppercase EXCEPT Branch (must stay lowercase to match auth)
         const normalizedRows = rows.map((row) => {
           const clean: Record<string, string> = {};
           for (const key in row) {
             const val = row[key];
-            if (typeof val === "string" && isNaN(Number(val)) && val.trim() !== "") {
+            if (key === "Branch") {
+              // Keep Branch lowercase so it matches auth.ts credentials and DynamoDB pk
+              clean[key] = typeof val === "string" ? val.trim().toLowerCase() : val;
+            } else if (typeof val === "string" && isNaN(Number(val)) && val.trim() !== "") {
               clean[key] = val.trim().toUpperCase();
             } else {
               clean[key] = typeof val === "string" ? val.trim() : val;
@@ -116,14 +120,14 @@ export async function POST(request: NextRequest) {
         // Detect duplicate: check branch+month+year from the first valid row
         if (!overwrite) {
           const sample = validRows[0];
-          const branch = (sample["Branch"] || "Unknown").trim();
+          const branch = (sample["Branch"] || "Unknown").trim(); // already lowercase from above
           const month = (sample["Month"] || "Unknown").trim();
           const year = (sample["Year"] || "Unknown").trim();
 
           const exists = await alreadyExists(branch, month, year);
           if (exists) {
             duplicates.push(`${branch} — ${month} ${year}`);
-            continue; // skip this file, don't overwrite
+            continue;
           }
         }
 
