@@ -5,33 +5,66 @@ import { QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamo, TABLE_NAME } from "../../lib/dynamodb";
 import type { FleetRow } from "../../lib/types";
 
+// Paginated scan — DynamoDB Limit is NOT a filter, it caps items read per page.
+// We must keep paginating via LastEvaluatedKey until all items are fetched.
+async function scanAll(): Promise<FleetRow[]> {
+  const items: FleetRow[] = [];
+  let lastKey: Record<string, unknown> | undefined = undefined;
+  do {
+    const result = await dynamo.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
+      })
+    );
+    if (result.Items) items.push(...(result.Items as FleetRow[]));
+    lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+  return items;
+}
+
+// Paginated query for a single branch
+async function queryBranch(branch: string): Promise<FleetRow[]> {
+  const items: FleetRow[] = [];
+  let lastKey: Record<string, unknown> | undefined = undefined;
+  do {
+    const result = await dynamo.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: "pk = :pk",
+        ExpressionAttributeValues: { ":pk": `BRANCH#${branch}` },
+        ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
+      })
+    );
+    if (result.Items) items.push(...(result.Items as FleetRow[]));
+    lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+  return items;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get("branch");
     const role = searchParams.get("role");
 
-    let items: FleetRow[] = [];
+    let items: FleetRow[] =
+      branch && role !== "superadmin" && role !== "admin"
+        ? await queryBranch(branch)
+        : await scanAll();
 
-    if (branch && role !== "superadmin" && role !== "admin") {
-      const result = await dynamo.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          KeyConditionExpression: "pk = :pk",
-          ExpressionAttributeValues: { ":pk": `BRANCH#${branch}` },
-          Limit: 5000,
-        })
-      );
-      items = (result.Items as FleetRow[]) || [];
-    } else {
-      const result = await dynamo.send(
-        new ScanCommand({
-          TableName: TABLE_NAME,
-          Limit: 5000,
-        })
-      );
-      items = (result.Items as FleetRow[]) || [];
-    }
+    // Normalize fields so UI filtering is consistent regardless of stored casing
+    // Branch → lowercase ("Bangalore" / "BANGALORE" → "bangalore")
+    // Month → title case ("APRIL" / "april" → "April") to match MONTH_ORDER array
+    items = items.map((item) => {
+      const rawMonth = item.Month || "";
+      const titleMonth = rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1).toLowerCase();
+      return {
+        ...item,
+        Branch: (item.Branch || "").toLowerCase(),
+        Month: titleMonth,
+      };
+    });
 
     // DataManager expects a `files` array — derive it from unique _fileName values
     const fileMap = new Map<string, { name: string; sha: string; download_url: string }>();
@@ -59,18 +92,24 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "filename required" }, { status: 400 });
     }
 
-    // Scan for all items with this _fileName and delete them
-    const scan = await dynamo.send(
-      new ScanCommand({
-        TableName: TABLE_NAME,
-        FilterExpression: "#fn = :fn",
-        ExpressionAttributeNames: { "#fn": "_fileName" },
-        ExpressionAttributeValues: { ":fn": filename },
-        ProjectionExpression: "pk, sk",
-      })
-    );
+    // Paginated scan to find all items with this _fileName
+    const toDelete: { pk: unknown; sk: unknown }[] = [];
+    let lastKey: Record<string, unknown> | undefined = undefined;
+    do {
+      const scan = await dynamo.send(
+        new ScanCommand({
+          TableName: TABLE_NAME,
+          FilterExpression: "#fn = :fn",
+          ExpressionAttributeNames: { "#fn": "_fileName" },
+          ExpressionAttributeValues: { ":fn": filename },
+          ProjectionExpression: "pk, sk",
+          ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
+        })
+      );
+      if (scan.Items) toDelete.push(...scan.Items as { pk: unknown; sk: unknown }[]);
+      lastKey = scan.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
 
-    const toDelete = scan.Items || [];
     if (toDelete.length === 0) {
       return NextResponse.json({ success: true, deleted: 0 });
     }

@@ -204,17 +204,6 @@ export default function FilterBar({
         <option value="active">Revenue Generating</option>
         <option value="idle">Idle (No Revenue)</option>
       </select>
-
-      <span
-        className="ml-auto text-xs font-semibold px-3.5 py-1.5 rounded-full"
-        style={{
-          color: "var(--accent2)",
-          background: "var(--accent-glow)",
-          border: "1px solid rgba(59,130,246,0.25)",
-        }}
-      >
-        {totalCount} vehicles
-      </span>
     </div>
   );
 }

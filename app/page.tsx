@@ -12,6 +12,7 @@ import VehicleTable from "./components/VehicleTable";
 import PnLTable from "./components/PnLTable";
 import type { FleetRow } from "./lib/types";
 import { num } from "./lib/dataUtils";
+import { getStoredUser } from "./lib/auth";
 
 const MONTH_ORDER = [
   "April", "May", "June", "July", "August", "September",
@@ -41,7 +42,10 @@ export default function Home() {
   const [addingMonth, setAddingMonth] = useState(false);
 
   useEffect(() => {
-    fetch("/api/data")
+    const user = getStoredUser();
+    const role = user?.role || "branch";
+    const branch = user?.username || "";
+    fetch(`/api/data?role=${role}&branch=${encodeURIComponent(branch)}`)
       .then((r) => r.json())
       .then(({ data }) => {
         if (data && data.length > 0) setAllData(data);
@@ -156,7 +160,10 @@ export default function Home() {
         alert("Upload failed: " + (err.error || "Unknown error"));
         return;
       }
-      const dataRes = await fetch("/api/data");
+      const user = getStoredUser();
+      const role = user?.role || "branch";
+      const branch = user?.username || "";
+      const dataRes = await fetch(`/api/data?role=${role}&branch=${encodeURIComponent(branch)}`);
       const { data } = await dataRes.json();
       if (data) {
         setAllData(data);
