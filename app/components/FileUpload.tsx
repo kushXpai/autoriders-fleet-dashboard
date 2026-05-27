@@ -3,6 +3,7 @@
 // app/components/FileUpload.tsx
 
 import { useCallback, useState } from "react";
+import { getStoredUser } from "../lib/auth";
 import type { FleetRow } from "../lib/types";
 
 interface Props {
@@ -13,7 +14,7 @@ export default function FileUpload({ onDataLoaded }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState("");
-  // Duplicates detected — waiting for user to confirm overwrite or cancel
+  const [dragging, setDragging] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   const [duplicateLabels, setDuplicateLabels] = useState<string[]>([]);
 
@@ -41,7 +42,6 @@ export default function FileUpload({ onDataLoaded }: Props) {
           throw new Error(uploadResult.error || "Upload failed");
         }
 
-        // Server found existing data for these month(s) — ask user what to do
         if (uploadResult.duplicates?.length && !overwrite) {
           setDuplicateLabels(uploadResult.duplicates);
           setPendingFiles(files);
@@ -56,14 +56,16 @@ export default function FileUpload({ onDataLoaded }: Props) {
 
         setProgress(`Saved ${uploadResult.inserted} rows. Loading dashboard…`);
 
-        const dataRes = await fetch("/api/data");
+        const user = getStoredUser();
+        const role = user?.role || "branch";
+        const branch = user?.username || "";
+        const dataRes = await fetch(`/api/data?role=${role}&branch=${encodeURIComponent(branch)}`);
         const dataResult = await dataRes.json();
 
         if (!dataRes.ok) {
           throw new Error(dataResult.error || "Failed to load data");
         }
 
-        // Clear duplicate state on success
         setPendingFiles(null);
         setDuplicateLabels([]);
         onDataLoaded(dataResult.data as FleetRow[]);
@@ -98,12 +100,26 @@ export default function FileUpload({ onDataLoaded }: Props) {
   const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (files.length) handleFiles(files);
+    e.target.value = "";
   };
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const files = Array.from(e.dataTransfer.files);
+    setDragging(false);
+    const files = Array.from(e.dataTransfer.files).filter(
+      (f) => f.name.endsWith(".xlsx") || f.name.endsWith(".xls") || f.name.endsWith(".csv")
+    );
     if (files.length) handleFiles(files);
+  };
+
+  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(false);
   };
 
   return (
@@ -111,6 +127,7 @@ export default function FileUpload({ onDataLoaded }: Props) {
       className="flex flex-1 flex-col items-center justify-center min-h-screen"
       style={{ background: "var(--bg)" }}
     >
+      {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -141,57 +158,97 @@ export default function FileUpload({ onDataLoaded }: Props) {
       </div>
 
       <div
-        className="rounded-2xl p-8 w-full max-w-md text-center"
+        className="rounded-2xl p-8 w-full max-w-md"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
           boxShadow: "0 4px 24px rgba(37,99,235,0.07)",
         }}
       >
-        <div
-          className="mb-4 flex justify-center"
-          onDrop={onDrop}
-          onDragOver={(e) => e.preventDefault()}
-        >
-          <svg
-            width="40"
-            height="40"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--text3)"
-            strokeWidth="1.5"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="17 8 12 3 7 8" />
-            <line x1="12" y1="3" x2="12" y2="15" />
-          </svg>
-        </div>
-
-        <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--text)" }}>
+        <h2 className="text-lg font-semibold mb-1 text-center" style={{ color: "var(--text)" }}>
           Upload Fleet Data
         </h2>
-        <p className="text-sm mb-5" style={{ color: "var(--text3)" }}>
-          Upload one or more CSV / Excel files with fleet data.
+        <p className="text-sm mb-5 text-center" style={{ color: "var(--text3)" }}>
+          Drag & drop or choose CSV / Excel files.
         </p>
 
-        {/* Loading state */}
+        {/* Drag & drop zone */}
+        {!uploading && !duplicateLabels.length && (
+          <div
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            className="relative rounded-xl mb-5 flex flex-col items-center justify-center gap-3 transition-all"
+            style={{
+              height: 180,
+              border: dragging
+                ? "2px dashed var(--accent2)"
+                : "2px dashed var(--border2)",
+              background: dragging
+                ? "var(--accent-glow)"
+                : "var(--surface2)",
+              cursor: "pointer",
+            }}
+          >
+            <label
+              className="absolute inset-0 cursor-pointer"
+              htmlFor="file-input-drop"
+            />
+            <svg
+              width="36"
+              height="36"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={dragging ? "var(--accent2)" : "var(--text3)"}
+              strokeWidth="1.5"
+              style={{ transition: "stroke 0.15s" }}
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <div className="text-center pointer-events-none">
+              <p
+                className="text-sm font-semibold"
+                style={{ color: dragging ? "var(--accent2)" : "var(--text2)" }}
+              >
+                {dragging ? "Drop files here" : "Drag & drop files here"}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text3)" }}>
+                or click to browse
+              </p>
+            </div>
+            <input
+              id="file-input-drop"
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              multiple
+              className="hidden"
+              onChange={onInputChange}
+              disabled={uploading}
+            />
+          </div>
+        )}
+
+        {/* Uploading state */}
         {uploading && (
           <div
-            className="mb-4 rounded-xl px-4 py-3 text-sm font-medium"
+            className="mb-5 rounded-xl px-4 py-4 text-sm font-medium flex items-center gap-3"
             style={{
               background: "var(--accent-glow)",
               color: "var(--accent2)",
               border: "1px solid rgba(59,130,246,0.2)",
             }}
           >
+            <div className="spinner" />
             {progress || "Processing…"}
           </div>
         )}
 
-        {/* Duplicate warning — ask user to overwrite or cancel */}
+        {/* Duplicate warning */}
         {duplicateLabels.length > 0 && !uploading && (
           <div
-            className="mb-4 rounded-xl px-4 py-4 text-sm text-left"
+            className="mb-5 rounded-xl px-4 py-4 text-sm text-left"
             style={{
               background: "rgba(245,158,11,0.08)",
               border: "1px solid rgba(245,158,11,0.3)",
@@ -203,13 +260,11 @@ export default function FileUpload({ onDataLoaded }: Props) {
             </p>
             <ul className="mb-3 space-y-0.5">
               {duplicateLabels.map((d) => (
-                <li key={d} className="text-xs font-medium">
-                  · {d}
-                </li>
+                <li key={d} className="text-xs font-medium">· {d}</li>
               ))}
             </ul>
             <p className="text-xs mb-3" style={{ color: "#78350f" }}>
-              Do you want to overwrite the existing data for these months?
+              Overwriting will delete all existing records for these months and replace with the new file.
             </p>
             <div className="flex gap-2">
               <button
@@ -237,7 +292,7 @@ export default function FileUpload({ onDataLoaded }: Props) {
         {/* Error state */}
         {error && (
           <div
-            className="mb-4 rounded-xl px-4 py-3 text-sm"
+            className="mb-5 rounded-xl px-4 py-3 text-sm"
             style={{
               background: "rgba(239,68,68,0.08)",
               color: "#dc2626",
@@ -248,38 +303,41 @@ export default function FileUpload({ onDataLoaded }: Props) {
           </div>
         )}
 
-        <label
-          className="cursor-pointer inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{
-            background: uploading ? "#9ca3af" : "var(--accent)",
-            pointerEvents: uploading ? "none" : "auto",
-          }}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="17 8 12 3 7 8" />
-            <line x1="12" y1="3" x2="12" y2="15" />
-          </svg>
-          {uploading ? "Uploading…" : "Choose File(s)"}
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            multiple
-            className="hidden"
-            onChange={onInputChange}
-            disabled={uploading}
-          />
-        </label>
+        {/* Divider */}
+        {!uploading && !duplicateLabels.length && (
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+            <span className="text-xs" style={{ color: "var(--text3)" }}>or</span>
+            <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+          </div>
+        )}
 
+        {/* Browse button */}
+        {!uploading && !duplicateLabels.length && (
+          <label
+            className="cursor-pointer w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: "var(--accent)" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Choose File(s)
+            <input
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              multiple
+              className="hidden"
+              onChange={onInputChange}
+              disabled={uploading}
+            />
+          </label>
+        )}
+
+        {/* Expected columns hint */}
         <div
-          className="mt-4 rounded-xl p-4 text-xs"
+          className="mt-5 rounded-xl p-4 text-xs"
           style={{
             background: "var(--surface2)",
             border: "1px solid var(--border)",
