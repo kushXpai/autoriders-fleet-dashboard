@@ -216,17 +216,13 @@ export default function Home() {
         }}
       >
         <div className="flex items-center gap-3.5">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{
-              background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-              boxShadow: "0 0 16px rgba(59,130,246,0.4)",
-            }}
-          >
-            <svg viewBox="0 0 20 20" fill="none" width="18" height="18">
-              <path d="M2 15l4-8 4 3 3-6 5 11H2z" fill="white" opacity=".9" />
-            </svg>
-          </div>
+          <div className="w-12 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
+              <img
+                src="/autoriders.webp"
+                alt="Autoriders Logo"
+                className="w-28 object-contain"
+              />
+            </div>
           <div>
             <h1
               className="syne text-lg font-extrabold"
