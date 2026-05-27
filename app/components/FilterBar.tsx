@@ -4,12 +4,12 @@ import { useState, useRef, useEffect } from "react";
 
 interface Props {
   branches: string[];
-  financialYears: string[];      // e.g. ["FY2025-26", "FY2024-25"]
-  months: string[];              // e.g. ["April|2025", "May|2025", ... "March|2026"]
+  financialYears: string[];
+  months: string[];
   models: string[];
   filterBranch: string[];
-  filterFY: string[];            // e.g. ["FY2025-26"]
-  filterMonth: string[];         // e.g. ["April|2025", "March|2026"]
+  filterFY: string[];
+  filterMonth: string[];
   filterModel: string;
   filterStatus: string;
   totalCount: number;
@@ -20,6 +20,11 @@ interface Props {
     model: string,
     status: string
   ) => void;
+}
+
+// "bangalore" → "Bangalore", "scb" → "Scb", "novotel" → "Novotel"
+function capitalize(val: string): string {
+  return val.charAt(0).toUpperCase() + val.slice(1);
 }
 
 function MultiSelect({
@@ -130,7 +135,7 @@ export default function FilterBar({
       </span>
       <div className="w-px h-6" style={{ background: "var(--border)" }} />
 
-      {/* Branch */}
+      {/* Branch — stored lowercase, displayed with first letter capitalised */}
       <MultiSelect
         label="All Branches"
         options={branches}
@@ -138,6 +143,7 @@ export default function FilterBar({
         onChange={(val) =>
           onChange(val, filterFY, filterMonth, filterModel, filterStatus)
         }
+        displayFn={capitalize}
       />
 
       {/* Financial Year */}
@@ -204,6 +210,17 @@ export default function FilterBar({
         <option value="active">Revenue Generating</option>
         <option value="idle">Idle (No Revenue)</option>
       </select>
+
+      <span
+        className="ml-auto text-xs font-semibold px-3.5 py-1.5 rounded-full"
+        style={{
+          color: "var(--accent2)",
+          background: "var(--accent-glow)",
+          border: "1px solid rgba(59,130,246,0.25)",
+        }}
+      >
+        {totalCount} vehicles
+      </span>
     </div>
   );
 }
