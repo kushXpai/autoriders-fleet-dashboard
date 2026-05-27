@@ -24,6 +24,9 @@ const CREDENTIALS: Record<string, { password: string; role: User['role'] }> = {
   surat: { password: '123456789', role: 'branch' },
   bharuch: { password: '123456789', role: 'branch' },
   vijaywada: { password: '123456789', role: 'branch' },
+  scb: { password: '123456789', role: 'branch' },
+  niif: { password: '123456789', role: 'branch' },
+  exxon: { password: '123456789', role: 'branch' },
 };
 
 export function authenticate(username: string, password: string): User | null {
