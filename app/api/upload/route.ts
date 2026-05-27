@@ -15,7 +15,6 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 function buildKeys(row: Record<string, string>, rowIndex: number) {
-  // Branch must be lowercase to match auth.ts credentials (e.g. "bangalore" not "BANGALORE")
   const branch = (row["Branch"] || "Unknown").trim().toLowerCase();
   const year = (row["Year"] || "Unknown").trim();
   const month = (row["Month"] || "Unknown").trim();
@@ -36,7 +35,52 @@ async function writeBatch(items: Record<string, unknown>[]): Promise<number> {
   return result.UnprocessedItems?.[TABLE_NAME]?.length ?? 0;
 }
 
-// Check if any items already exist for this branch+month+year combination
+// Fetch all keys for a given branch+month+year so we can delete them before re-inserting
+async function fetchKeysForMonth(
+  branch: string,
+  month: string,
+  year: string
+): Promise<{ pk: string; sk: string }[]> {
+  const keys: { pk: string; sk: string }[] = [];
+  let lastKey: Record<string, unknown> | undefined = undefined;
+  do {
+    const result = await dynamo.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+        ExpressionAttributeValues: {
+          ":pk": `BRANCH#${branch}`,
+          ":prefix": `${year}#${month}#`,
+        },
+        ProjectionExpression: "pk, sk",
+        ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
+      })
+    );
+    if (result.Items) {
+      keys.push(...(result.Items as { pk: string; sk: string }[]));
+    }
+    lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+  return keys;
+}
+
+// Delete all keys in batches of 25
+async function deleteKeys(keys: { pk: string; sk: string }[]): Promise<void> {
+  if (!keys.length) return;
+  const batches = chunk(keys, 25);
+  for (const batch of batches) {
+    await dynamo.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [TABLE_NAME]: batch.map((key) => ({
+            DeleteRequest: { Key: { pk: key.pk, sk: key.sk } },
+          })),
+        },
+      })
+    );
+  }
+}
+
 async function alreadyExists(branch: string, month: string, year: string): Promise<boolean> {
   const result = await dynamo.send(
     new QueryCommand({
@@ -57,7 +101,6 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
-    // Optional flag: if "overwrite=true" is passed, skip the duplicate check
     const overwrite = formData.get("overwrite") === "true";
 
     if (!files || files.length === 0) {
@@ -91,14 +134,19 @@ export async function POST(request: NextRequest) {
           raw: false,
         });
 
-        // Normalize text fields to uppercase EXCEPT Branch (must stay lowercase to match auth)
+        // Normalize:
+        // Branch → lowercase (matches pk and auth)
+        // Month  → title case ("APRIL" → "April") so MONTH_ORDER works in UI
+        // Rest   → uppercase (prevent model name casing duplicates)
         const normalizedRows = rows.map((row) => {
           const clean: Record<string, string> = {};
           for (const key in row) {
             const val = row[key];
             if (key === "Branch") {
-              // Keep Branch lowercase so it matches auth.ts credentials and DynamoDB pk
               clean[key] = typeof val === "string" ? val.trim().toLowerCase() : val;
+            } else if (key === "Month") {
+              const s = typeof val === "string" ? val.trim() : String(val).trim();
+              clean[key] = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
             } else if (typeof val === "string" && isNaN(Number(val)) && val.trim() !== "") {
               clean[key] = val.trim().toUpperCase();
             } else {
@@ -117,18 +165,24 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Detect duplicate: check branch+month+year from the first valid row
-        if (!overwrite) {
-          const sample = validRows[0];
-          const branch = (sample["Branch"] || "Unknown").trim(); // already lowercase from above
-          const month = (sample["Month"] || "Unknown").trim();
-          const year = (sample["Year"] || "Unknown").trim();
+        const sample = validRows[0];
+        const branch = sample["Branch"] || "Unknown";
+        const month = sample["Month"] || "Unknown";
+        const year = (sample["Year"] || "Unknown").trim();
 
-          const exists = await alreadyExists(branch, month, year);
-          if (exists) {
-            duplicates.push(`${branch} — ${month} ${year}`);
-            continue;
-          }
+        const exists = await alreadyExists(branch, month, year);
+
+        if (exists && !overwrite) {
+          // Tell the UI there's a duplicate so it can ask the user to confirm overwrite
+          duplicates.push(`${branch} — ${month} ${year}`);
+          continue;
+        }
+
+        if (exists && overwrite) {
+          // Clean delete all old records for this branch+month+year before inserting new ones
+          // This ensures removed/corrected vehicles don't leave ghost records behind
+          const oldKeys = await fetchKeysForMonth(branch, month, year);
+          await deleteKeys(oldKeys);
         }
 
         const items = validRows.map((row, index) => ({
