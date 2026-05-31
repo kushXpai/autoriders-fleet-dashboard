@@ -43,6 +43,25 @@ export interface TripRow {
   "Driver Allowance"?: string;
   "Night Allowance"?: string;
   "App Duty"?: string;
+  // New fields for advanced analytics
+  "Opening Time"?: string;
+  "Opening Date"?: string;
+  "Closing Time"?: string;
+  "Closing Date"?: string;
+  "Actual Duty Time"?: string;
+  "Garage Op. Kms"?: string;
+  "Garage Clo. Kms"?: string;
+  "Dry Run Kms"?: string;
+  "Rate/Km Billed"?: string;
+  "Rate/Km Actual"?: string;
+  "Invoice Creation Date"?: string;
+  "Dispatch Date"?: string;
+  "Close Date/"?: string;
+  "CN No"?: string;
+  "CN Amt"?: string;
+  "Cost Centre"?: string;
+  "Reporting Date"?: string;
+  "Reporting Time"?: string;
   [key: string]: string | undefined;
 }
 
@@ -61,6 +80,35 @@ function fmtShort(val: number) {
   if (val >= 1e5) return `₹${(val / 1e5).toFixed(1)} L`;
   if (val >= 1e3) return `₹${(val / 1e3).toFixed(1)}K`;
   return `₹${val.toFixed(0)}`;
+}
+
+// Parse "H:MM" or "HH:MM" duty time string → decimal hours
+function parseDutyHours(s?: string): number {
+  if (!s) return 0;
+  const parts = s.trim().split(":");
+  if (parts.length < 2) return 0;
+  const h = parseInt(parts[0]) || 0;
+  const m = parseInt(parts[1]) || 0;
+  return h + m / 60;
+}
+
+// Parse "DD/MM/YYYY" → Date object (returns null if invalid)
+function parseDMY(s?: string): Date | null {
+  if (!s) return null;
+  const p = s.trim().split("/");
+  if (p.length !== 3) return null;
+  const d = parseInt(p[0]), m = parseInt(p[1]) - 1, y = parseInt(p[2]);
+  if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
+  return new Date(y, m, d);
+}
+
+// Parse "H:MM" or "HH:MM" time → hour integer 0-23
+function parseHour(s?: string): number | null {
+  if (!s) return null;
+  const p = s.trim().split(":");
+  const h = parseInt(p[0]);
+  if (isNaN(h) || h < 0 || h > 23) return null;
+  return h;
 }
 
 const OWNERSHIP_COLORS: Record<string, string> = {
@@ -1188,6 +1236,140 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
       { label: "Upgraded", value: yes.length, revenue: yes.reduce((s, r) => s + n(r["Total"]), 0), color: "#10b981" },
       { label: "No Upgrade", value: no.length, revenue: no.reduce((s, r) => s + n(r["Total"]), 0), color: "#94a3b8" },
     ];
+  }, [filtered]);
+
+  // ── [1] PEAK HOUR HEATMAP ─────────────────────────────────────────────────────
+  // 24×7 grid: row = hour of day (0-23), col = day of week (0=Sun..6=Sat)
+  const peakHourData = useMemo(() => {
+    // grid[hour][dow] = { trips, revenue }
+    const grid: { trips: number; revenue: number }[][] = Array.from({ length: 24 }, () =>
+      Array.from({ length: 7 }, () => ({ trips: 0, revenue: 0 }))
+    );
+    let hasData = false;
+    filtered.forEach((r) => {
+      const hour = parseHour(r["Opening Time"] || r["Reporting Time"]);
+      const date = parseDMY(r["Opening Date"] || r["Reporting Date"]);
+      if (hour === null || !date) return;
+      const dow = date.getDay(); // 0=Sun
+      grid[hour][dow].trips++;
+      grid[hour][dow].revenue += n(r["Total"]);
+      hasData = true;
+    });
+    return hasData ? grid : null;
+  }, [filtered]);
+
+  // ── [2] VEHICLE UTILISATION ────────────────────────────────────────────────────
+  const vehicleUtilData = useMemo(() => {
+    const map: Record<string, { trips: number; revenue: number; dutyHrs: number; garageKms: number; revenueKms: number }> = {};
+    filtered.forEach((r) => {
+      const v = r["Vehicle No."] || "Unknown";
+      if (!map[v]) map[v] = { trips: 0, revenue: 0, dutyHrs: 0, garageKms: 0, revenueKms: 0 };
+      map[v].trips++;
+      map[v].revenue += n(r["Total"]);
+      map[v].dutyHrs += parseDutyHours(r["Actual Duty Time"]);
+      const gOp = n(r["Garage Op. Kms"]);
+      const gCl = n(r["Garage Clo. Kms"]);
+      if (gCl > gOp) map[v].garageKms += (gCl - gOp);
+      map[v].revenueKms += n(r["Total Kms"]);
+    });
+    return Object.entries(map)
+      .map(([vehicle, v]) => ({
+        vehicle,
+        ...v,
+        revenuePerHr: v.dutyHrs > 0 ? v.revenue / v.dutyHrs : 0,
+        dryRunKms: Math.max(0, v.garageKms - v.revenueKms),
+      }))
+      .filter((v) => v.trips > 0)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 15);
+  }, [filtered]);
+
+  // ── [3] RATE REALISATION (billed vs actual per km) ─────────────────────────────
+  const rateRealisationData = useMemo(() => {
+    const corpMap: Record<string, { billedKmRate: number[]; actualKmRate: number[]; revenue: number; trips: number }> = {};
+    filtered.forEach((r) => {
+      const corp = r["Corporate Name"] || "Unknown";
+      const billed = n(r["Rate/Km Billed"]);
+      const actual = n(r["Rate/Km Actual"]);
+      if (billed <= 0) return;
+      if (!corpMap[corp]) corpMap[corp] = { billedKmRate: [], actualKmRate: [], revenue: 0, trips: 0 };
+      corpMap[corp].billedKmRate.push(billed);
+      if (actual > 0) corpMap[corp].actualKmRate.push(actual);
+      corpMap[corp].revenue += n(r["Total"]);
+      corpMap[corp].trips++;
+    });
+    return Object.entries(corpMap)
+      .map(([corp, v]) => {
+        const avgBilled = v.billedKmRate.length ? v.billedKmRate.reduce((s, x) => s + x, 0) / v.billedKmRate.length : 0;
+        const avgActual = v.actualKmRate.length ? v.actualKmRate.reduce((s, x) => s + x, 0) / v.actualKmRate.length : 0;
+        const realisation = avgActual > 0 ? (avgBilled / avgActual) * 100 : 100;
+        return { corp, avgBilled, avgActual, realisation, revenue: v.revenue, trips: v.trips };
+      })
+      .filter((x) => x.avgBilled > 0)
+      .sort((a, b) => b.realisation - a.realisation)
+      .slice(0, 12);
+  }, [filtered]);
+
+  // ── [4] GROUP CODE ROLLUP ──────────────────────────────────────────────────────
+  const groupRollupData = useMemo(() => {
+    const map: Record<string, { revenue: number; trips: number; corporates: Set<string>; ownership: Record<string, number> }> = {};
+    filtered.forEach((r) => {
+      // Use Group Code if present, otherwise derive from Corporate Name prefix or use corporate name
+      const rawGroup = r["Group Code"] || "";
+      // Normalise: strip digits/spaces, take first word
+      const group = rawGroup.trim().toUpperCase() || "UNGROUPED";
+      const corp = r["Corporate Name"] || "Unknown";
+      if (!map[group]) map[group] = { revenue: 0, trips: 0, corporates: new Set(), ownership: {} };
+      map[group].revenue += n(r["Total"]);
+      map[group].trips++;
+      map[group].corporates.add(corp);
+      const ow = (r["Ownership Type"] || "OTHER").toUpperCase();
+      map[group].ownership[ow] = (map[group].ownership[ow] || 0) + n(r["Total"]);
+    });
+    return Object.entries(map)
+      .map(([group, v]) => ({
+        group,
+        revenue: v.revenue,
+        trips: v.trips,
+        corporates: [...v.corporates],
+        selfRevenue: v.ownership["SELF"] || 0,
+        spotRevenue: v.ownership["SPOT"] || 0,
+        allottedRevenue: v.ownership["ALLOTTED"] || 0,
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 12);
+  }, [filtered]);
+
+  // ── [5] DISPATCH-TO-INVOICE LAG ────────────────────────────────────────────────
+  const invoiceLagData = useMemo(() => {
+    const corpLag: Record<string, { lags: number[]; revenue: number }> = {};
+    let totalLag = 0, lagCount = 0;
+    filtered.forEach((r) => {
+      const openDate = parseDMY(r["Opening Date"] || r["Reporting Date"]);
+      const invDate = parseDMY(r["Invoice Creation Date"]);
+      if (!openDate || !invDate) return;
+      const diffDays = Math.round((invDate.getTime() - openDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0 || diffDays > 365) return; // skip outliers
+      const corp = r["Corporate Name"] || "Unknown";
+      if (!corpLag[corp]) corpLag[corp] = { lags: [], revenue: 0 };
+      corpLag[corp].lags.push(diffDays);
+      corpLag[corp].revenue += n(r["Total"]);
+      totalLag += diffDays;
+      lagCount++;
+    });
+    const avgOverall = lagCount > 0 ? totalLag / lagCount : 0;
+    const corpList = Object.entries(corpLag)
+      .map(([corp, v]) => ({
+        corp,
+        avgLag: v.lags.reduce((s, x) => s + x, 0) / v.lags.length,
+        maxLag: Math.max(...v.lags),
+        trips: v.lags.length,
+        revenue: v.revenue,
+      }))
+      .filter((x) => x.trips >= 1)
+      .sort((a, b) => b.avgLag - a.avgLag)
+      .slice(0, 10);
+    return { avgOverall, corpList, lagCount };
   }, [filtered]);
 
   // ── Trip table ──────────────────────────────────────────────────────────────
