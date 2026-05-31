@@ -41,6 +41,9 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   const [addingMonth, setAddingMonth] = useState(false);
+  const [activeSection, setActiveSection] = useState<
+    "fleet" | "revenue"
+  >("fleet");
 
   useEffect(() => {
     const user = getStoredUser();
@@ -218,12 +221,12 @@ export default function Home() {
       >
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
-              <img
-                src="/autoriders.webp"
-                alt="Autoriders Logo"
-                className="w-28 object-contain"
-              />
-            </div>
+            <img
+              src="/autoriders.webp"
+              alt="Autoriders Logo"
+              className="w-28 object-contain"
+            />
+          </div>
           <div>
             <h1
               className="syne text-lg font-extrabold"
@@ -269,26 +272,105 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-screen-2xl mx-auto w-full px-8 py-6 pb-10 fade-in main-pad">
-        <FilterBar
-          branches={branches}
-          financialYears={financialYears}
-          months={months}
-          models={models}
-          filterBranch={filterBranch}
-          filterFY={filterFY}
-          filterMonth={filterMonth}
-          filterModel={filterModel}
-          filterStatus={filterStatus}
-          totalCount={filteredData.length}
-          onChange={handleFilterChange}
-        />
-        <KpiGrid data={filteredData} />
-        <InsightStrip data={filteredData} />
-        <PnLTable data={filteredData} />
-        <Charts data={filteredData} />
-        <DecisionPanel data={filteredData} />
-        <VehicleTable data={filteredData} />
+      <main className="flex flex-1">
+        {/* Sidebar */}
+        <aside
+          className="w-64 border-r flex-shrink-0"
+          style={{
+            background: "#fff",
+            borderColor: "var(--border)",
+          }}
+        >
+          <div className="p-4">
+            <div
+              className="text-xs uppercase font-semibold mb-4"
+              style={{ color: "var(--text3)" }}
+            >
+              Intelligence Modules
+            </div>
+
+            <button
+              onClick={() => setActiveSection("fleet")}
+              className="w-full text-left px-4 py-3 rounded-xl mb-2 transition"
+              style={{
+                background:
+                  activeSection === "fleet"
+                    ? "var(--accent-glow)"
+                    : "transparent",
+                color:
+                  activeSection === "fleet"
+                    ? "var(--accent2)"
+                    : "var(--text)",
+              }}
+            >
+              🚛 Fleet Intelligence
+            </button>
+
+            <button
+              onClick={() => setActiveSection("revenue")}
+              className="w-full text-left px-4 py-3 rounded-xl transition"
+              style={{
+                background:
+                  activeSection === "revenue"
+                    ? "var(--accent-glow)"
+                    : "transparent",
+                color:
+                  activeSection === "revenue"
+                    ? "var(--accent2)"
+                    : "var(--text)",
+              }}
+            >
+              💰 Revenue Intelligence
+            </button>
+          </div>
+        </aside>
+
+        {/* Content Area */}
+        <div className="flex-1 px-8 py-6 pb-10 fade-in main-pad">
+          {activeSection === "fleet" ? (
+            <>
+              <FilterBar
+                branches={branches}
+                financialYears={financialYears}
+                months={months}
+                models={models}
+                filterBranch={filterBranch}
+                filterFY={filterFY}
+                filterMonth={filterMonth}
+                filterModel={filterModel}
+                filterStatus={filterStatus}
+                totalCount={filteredData.length}
+                onChange={handleFilterChange}
+              />
+
+              <KpiGrid data={filteredData} />
+              <InsightStrip data={filteredData} />
+              <PnLTable data={filteredData} />
+              <Charts data={filteredData} />
+              <DecisionPanel data={filteredData} />
+              <VehicleTable data={filteredData} />
+            </>
+          ) : (
+            <div
+              className="rounded-3xl p-12"
+              style={{
+                background: "#fff",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <h2
+                className="text-3xl font-bold mb-3"
+                style={{ color: "var(--text)" }}
+              >
+                Revenue Intelligence
+              </h2>
+
+              <p style={{ color: "var(--text3)" }}>
+                Revenue Intelligence module coming soon.
+              </p>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
