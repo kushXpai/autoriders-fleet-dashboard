@@ -5,9 +5,28 @@ import type { FleetRow, MonthData } from "../lib/types";
 import { num } from "../lib/dataUtils";
 
 const MONTH_ORDER = [
-  "April", "May", "June", "July", "August", "September",
-  "October", "November", "December", "January", "February", "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+  "January",
+  "February",
+  "March",
 ];
+
+// ADD THIS HERE
+function getFYStart(month: string, year: string): number {
+  const y = parseInt(year, 10);
+
+  const idx = MONTH_ORDER.indexOf(month);
+
+  return idx <= 8 ? y : y - 1;
+}
 
 function fmt(v: number): string {
   return (v / 1e5).toFixed(2);
@@ -61,9 +80,18 @@ export default function PnLTable({ data }: { data: FleetRow[] }) {
   const allMonths = groupDataByMonth(data);
 
   const sorted = [...allMonths].sort((a, b) => {
-    if (a.year !== b.year) return a.year.localeCompare(b.year);
-    return MONTH_ORDER.indexOf(a.month) - MONTH_ORDER.indexOf(b.month);
-  });
+  const aFY = getFYStart(a.month, a.year);
+  const bFY = getFYStart(b.month, b.year);
+
+  if (aFY !== bFY) {
+    return aFY - bFY;
+  }
+
+  return (
+    MONTH_ORDER.indexOf(a.month) -
+    MONTH_ORDER.indexOf(b.month)
+  );
+});
 
   if (!sorted.length) return null;
 
