@@ -270,7 +270,7 @@ export default function Home() {
 
       <main className="flex flex-1">
         {/* Sidebar */}
-        <aside className="w-64 border-r flex-shrink-0" style={{ background: "#fff", borderColor: "var(--border)" }}>
+        <aside className="w-64 border-r flex-shrink-0" style={{ background: "#fff", borderColor: "var(--border)", position: "sticky", top: 62, height: "calc(100vh - 62px)", overflowY: "auto" }}>
           <div className="p-4">
             <div className="text-xs uppercase font-semibold mb-4" style={{ color: "var(--text3)" }}>
               Intelligence Modules
