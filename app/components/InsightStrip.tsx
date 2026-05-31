@@ -1,3 +1,4 @@
+// app/components/InsightStrip.tsx
 "use client";
 
 import type { FleetRow } from "../lib/types";

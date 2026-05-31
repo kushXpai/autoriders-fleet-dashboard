@@ -1,3 +1,4 @@
+// app/lib/dataUtils.ts
 import type { FleetRow } from './types';
 
 export const num = (v: string | undefined): number =>

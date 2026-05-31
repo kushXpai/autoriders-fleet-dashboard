@@ -1,3 +1,4 @@
+// app/lib/auth.ts
 export interface User {
   username: string;
   role: 'superadmin' | 'admin' | 'branch';

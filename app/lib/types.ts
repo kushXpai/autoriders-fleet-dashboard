@@ -1,3 +1,4 @@
+// app/lib/types.ts
 export interface FleetRow {
   'Sr. No': string;
   'Branch': string;

@@ -1,6 +1,5 @@
-"use client";
-
 // app/components/FileUpload.tsx
+"use client";
 
 import { useCallback, useState } from "react";
 import { getStoredUser } from "../lib/auth";
