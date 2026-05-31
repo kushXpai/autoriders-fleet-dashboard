@@ -50,6 +50,9 @@ export default function Home() {
   // ── Navigation ─────────────────────────────────────────────────────────────
   const [activeSection, setActiveSection] = useState<"fleet" | "revenue">("fleet");
 
+  // ── Role check ─────────────────────────────────────────────────────────────
+  const isDeveloper = getStoredUser()?.role === "developer";
+
   // ── Load fleet data ────────────────────────────────────────────────────────
   useEffect(() => {
     const user = getStoredUser();
@@ -66,7 +69,7 @@ export default function Home() {
 
   // ── Load revenue data when section becomes active ──────────────────────────
   useEffect(() => {
-    if (activeSection !== "revenue") return;
+    if (activeSection !== "revenue" || !isDeveloper) return;
     setTripsLoading(true);
     fetch("/api/revenue")
       .then((r) => r.json())
@@ -287,6 +290,7 @@ export default function Home() {
               🚛 Fleet Intelligence
             </button>
 
+            {isDeveloper && (
             <button
               onClick={() => setActiveSection("revenue")}
               className="w-full text-left px-4 py-3 rounded-xl transition"
@@ -297,12 +301,13 @@ export default function Home() {
             >
               💰 Revenue Intelligence
             </button>
+            )}
           </div>
         </aside>
 
         {/* Content Area */}
         <div className="flex-1 px-8 py-6 pb-10 fade-in main-pad">
-          {activeSection === "fleet" ? (
+          {activeSection === "fleet" || !isDeveloper ? (
             <>
               <FilterBar
                 branches={branches}

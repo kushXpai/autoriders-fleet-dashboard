@@ -1,10 +1,11 @@
 // app/lib/auth.ts
 export interface User {
   username: string;
-  role: 'superadmin' | 'admin' | 'branch';
+  role: 'developer' | 'superadmin' | 'admin' | 'branch';
 }
 
 const CREDENTIALS: Record<string, { password: string; role: User['role'] }> = {
+  developer: { password: 'superadmin$123', role: 'developer' },
   superadmin: { password: 'superadmin$123', role: 'superadmin' },
   admin: { password: 'admin$123', role: 'admin' },
   ahmedabad: { password: '123456789', role: 'branch' },
