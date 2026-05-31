@@ -11,6 +11,7 @@ export interface TripRow {
   "Invoice No"?: string;
   "Corporate Name"?: string;
   "Source Branch"?: string;
+  "Service Branch"?: string;
   "Customer Name"?: string;
   "Group Code"?: string;
   "Booker Name"?: string;
@@ -18,7 +19,7 @@ export interface TripRow {
   "Car Type"?: string;
   "Car Booked"?: string;
   "Car Sent"?: string;
-  "Upgread"?: string; // note: typo in source data
+  "Upgread"?: string;
   "Usage Type"?: string;
   "Modified Usage Type"?: string;
   "Invoice Month"?: string;
@@ -195,6 +196,252 @@ function DonutChart({
   );
 }
 
+// SVG Bar Chart with axes and grid lines
+function SvgBarChart({
+  data,
+  height = 180,
+  colorFn,
+}: {
+  data: { label: string; value: number }[];
+  height?: number;
+  colorFn?: (i: number, label?: string) => string;
+}) {
+  const BAR_COLORS = ["#3b82f6","#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#14b8a6","#f97316","#0ea5e9","#a855f7"];
+  if (!data.length) return null;
+  const max = Math.max(...data.map((d) => d.value), 1);
+  const W = 500;
+  const H = height;
+  const padL = 50;
+  const padR = 12;
+  const padT = 12;
+  const padB = 44;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const barW = Math.max(8, (chartW / data.length) * 0.55);
+  const gap = chartW / data.length;
+
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ y: padT + chartH * (1 - f), val: max * f }));
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
+      {/* Grid lines */}
+      {ticks.map((t, i) => (
+        <g key={i}>
+          <line x1={padL} x2={W - padR} y1={t.y} y2={t.y} stroke="#e2e8f0" strokeWidth={1} />
+          <text x={padL - 6} y={t.y + 4} fontSize={9} textAnchor="end" fill="#94a3b8">
+            {t.val >= 1e5 ? `${(t.val / 1e5).toFixed(1)}L` : t.val >= 1e3 ? `${(t.val / 1e3).toFixed(0)}K` : t.val.toFixed(0)}
+          </text>
+        </g>
+      ))}
+      {/* X axis */}
+      <line x1={padL} x2={W - padR} y1={padT + chartH} y2={padT + chartH} stroke="#cbd5e1" strokeWidth={1} />
+      {/* Bars */}
+      {data.map((d, i) => {
+        const x = padL + gap * i + gap / 2 - barW / 2;
+        const barH = (d.value / max) * chartH;
+        const y = padT + chartH - barH;
+        const color = colorFn ? colorFn(i, d.label) : BAR_COLORS[i % BAR_COLORS.length];
+        const label = d.label.length > 8 ? d.label.slice(0, 7) + "…" : d.label;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH} rx={3} fill={color} opacity={0.9} />
+            {/* Value on top */}
+            <text x={x + barW / 2} y={y - 3} fontSize={8} textAnchor="middle" fill="#64748b" fontWeight={600}>
+              {d.value >= 1e5 ? `${(d.value / 1e5).toFixed(1)}L` : d.value >= 1e3 ? `${(d.value / 1e3).toFixed(0)}K` : d.value.toFixed(0)}
+            </text>
+            {/* X label */}
+            <text
+              x={x + barW / 2}
+              y={padT + chartH + 14}
+              fontSize={8}
+              textAnchor="middle"
+              fill="#64748b"
+              transform={`rotate(-30, ${x + barW / 2}, ${padT + chartH + 14})`}
+            >
+              {label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// Multi-series grouped bar chart for revenue trend (SELF / SPOT / ALLOTTED + total)
+function MultiBarChart({
+  data,
+  height = 220,
+}: {
+  data: { label: string; self: number; spot: number; allotted: number; total: number }[];
+  height?: number;
+}) {
+  if (!data.length) return null;
+  const maxVal = Math.max(...data.map((d) => d.total), 1);
+  const W = 560;
+  const H = height;
+  const padL = 54;
+  const padR = 14;
+  const padT = 16;
+  const padB = 46;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const groupW = chartW / data.length;
+  const bW = Math.max(6, (groupW * 0.7) / 4);
+  const gapInGroup = Math.max(1, (groupW * 0.7 - bW * 4) / 3);
+  const series = [
+    { key: "self" as const, color: "#3b82f6", label: "SELF" },
+    { key: "spot" as const, color: "#f59e0b", label: "SPOT" },
+    { key: "allotted" as const, color: "#10b981", label: "ALLOTTED" },
+    { key: "total" as const, color: "#6366f1", label: "TOTAL" },
+  ];
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ y: padT + chartH * (1 - f), val: maxVal * f }));
+
+  return (
+    <div>
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+        {series.map((s) => (
+          <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: s.color, display: "inline-block" }} />
+            <span style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600 }}>{s.label}</span>
+          </div>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line x1={padL} x2={W - padR} y1={t.y} y2={t.y} stroke="#e2e8f0" strokeWidth={1} />
+            <text x={padL - 6} y={t.y + 4} fontSize={9} textAnchor="end" fill="#94a3b8">
+              {t.val >= 1e5 ? `${(t.val / 1e5).toFixed(1)}L` : t.val >= 1e3 ? `${(t.val / 1e3).toFixed(0)}K` : t.val.toFixed(0)}
+            </text>
+          </g>
+        ))}
+        <line x1={padL} x2={W - padR} y1={padT + chartH} y2={padT + chartH} stroke="#cbd5e1" strokeWidth={1} />
+        {data.map((d, gi) => {
+          const groupX = padL + groupW * gi + (groupW - bW * 4 - gapInGroup * 3) / 2;
+          return series.map((s, si) => {
+            const val = d[s.key];
+            const bH = (val / maxVal) * chartH;
+            const x = groupX + si * (bW + gapInGroup);
+            const y = padT + chartH - bH;
+            const label = d.label.length > 6 ? d.label.slice(0, 5) + "…" : d.label;
+            return (
+              <g key={`${gi}-${si}`}>
+                <rect x={x} y={y} width={bW} height={bH} rx={2} fill={s.color} opacity={0.88} />
+                {si === 3 && (
+                  <text
+                    x={groupX + (bW * 4 + gapInGroup * 3) / 2}
+                    y={padT + chartH + 14}
+                    fontSize={8}
+                    textAnchor="middle"
+                    fill="#64748b"
+                    transform={`rotate(-30, ${groupX + (bW * 4 + gapInGroup * 3) / 2}, ${padT + chartH + 14})`}
+                  >
+                    {label}
+                  </text>
+                )}
+              </g>
+            );
+          });
+        })}
+      </svg>
+    </div>
+  );
+}
+
+// Line chart (SVG)
+function LineChart({
+  data,
+  height = 180,
+  onClick,
+}: {
+  data: { label: string; value: number }[];
+  height?: number;
+  onClick?: (item: { label: string; value: number; index: number }, x: number, y: number) => void;
+}) {
+  if (data.length < 2) return null;
+  const W = 520;
+  const H = height;
+  const padL = 52;
+  const padR = 14;
+  const padT = 16;
+  const padB = 44;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const max = Math.max(...data.map((d) => d.value), 1);
+  const min = Math.min(...data.map((d) => d.value), 0);
+  const range = max - min || 1;
+
+  const pts = data.map((d, i) => ({
+    x: padL + (i / (data.length - 1)) * chartW,
+    y: padT + chartH - ((d.value - min) / range) * chartH,
+    ...d,
+    index: i,
+  }));
+
+  const pathD = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+  const areaD = pathD + ` L ${pts[pts.length - 1].x} ${padT + chartH} L ${pts[0].x} ${padT + chartH} Z`;
+
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ y: padT + chartH * (1 - f), val: min + range * f }));
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
+      <defs>
+        <linearGradient id="lineAreaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.18} />
+          <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.01} />
+        </linearGradient>
+      </defs>
+      {ticks.map((t, i) => (
+        <g key={i}>
+          <line x1={padL} x2={W - padR} y1={t.y} y2={t.y} stroke="#e2e8f0" strokeWidth={1} />
+          <text x={padL - 6} y={t.y + 4} fontSize={9} textAnchor="end" fill="#94a3b8">
+            {t.val >= 1e5 ? `${(t.val / 1e5).toFixed(1)}L` : t.val >= 1e3 ? `${(t.val / 1e3).toFixed(0)}K` : t.val.toFixed(0)}
+          </text>
+        </g>
+      ))}
+      <line x1={padL} x2={W - padR} y1={padT + chartH} y2={padT + chartH} stroke="#cbd5e1" strokeWidth={1} />
+      {/* Area fill */}
+      <path d={areaD} fill="url(#lineAreaGrad)" />
+      {/* Line */}
+      <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+      {/* Points */}
+      {pts.map((p, i) => (
+        <g key={i}>
+          <circle
+            cx={p.x}
+            cy={p.y}
+            r={5}
+            fill="#fff"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            style={{ cursor: onClick ? "pointer" : "default" }}
+            onClick={(e) => {
+              if (onClick) {
+                const svgEl = (e.target as SVGCircleElement).closest("svg")!;
+                const rect = svgEl.getBoundingClientRect();
+                const scaleX = rect.width / W;
+                const scaleY = rect.height / H;
+                onClick({ label: p.label, value: p.value, index: p.index }, rect.left + p.x * scaleX, rect.top + p.y * scaleY);
+              }
+            }}
+          />
+          <text
+            x={p.x}
+            y={padT + chartH + 14}
+            fontSize={8}
+            textAnchor="middle"
+            fill="#64748b"
+            transform={`rotate(-30, ${p.x}, ${padT + chartH + 14})`}
+          >
+            {p.label.length > 7 ? p.label.slice(0, 6) + "…" : p.label}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 // Simple bar chart rows
 function BarList({
   items,
@@ -271,6 +518,470 @@ function FilterPill({
   );
 }
 
+// ─── Date Range Picker Popup ───────────────────────────────────────────────────
+
+function DateRangePopup({
+  onClose,
+  onApply,
+  initial,
+}: {
+  onClose: () => void;
+  onApply: (range: { label: string; from?: string; to?: string }) => void;
+  initial?: { label: string };
+}) {
+  const [selected, setSelected] = useState(initial?.label || "Anytime");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
+  const presets = [
+    "Anytime",
+    "This Month",
+    "Last Month",
+    "Last 3 Months",
+    "Last 6 Months",
+    "This Year",
+    "Last Year",
+    "Custom Range",
+  ];
+
+  function getMonthKey(offset: number) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + offset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function handleApply() {
+    if (selected === "Anytime") {
+      onApply({ label: "Anytime" });
+    } else if (selected === "This Month") {
+      const m = getMonthKey(0);
+      onApply({ label: "This Month", from: m, to: m });
+    } else if (selected === "Last Month") {
+      const m = getMonthKey(-1);
+      onApply({ label: "Last Month", from: m, to: m });
+    } else if (selected === "Last 3 Months") {
+      onApply({ label: "Last 3 Months", from: getMonthKey(-2), to: getMonthKey(0) });
+    } else if (selected === "Last 6 Months") {
+      onApply({ label: "Last 6 Months", from: getMonthKey(-5), to: getMonthKey(0) });
+    } else if (selected === "This Year") {
+      const y = new Date().getFullYear();
+      onApply({ label: "This Year", from: `${y}-01`, to: `${y}-12` });
+    } else if (selected === "Last Year") {
+      const y = new Date().getFullYear() - 1;
+      onApply({ label: "Last Year", from: `${y}-01`, to: `${y}-12` });
+    } else if (selected === "Custom Range") {
+      onApply({ label: `${customFrom} – ${customTo}`, from: customFrom, to: customTo });
+    }
+    onClose();
+  }
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(15,23,42,0.45)",
+        backdropFilter: "blur(2px)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 18,
+          boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
+          padding: "28px 32px",
+          minWidth: 340,
+          maxWidth: 420,
+          width: "90vw",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text)", marginBottom: 20 }}>📅 Select Date Range</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+          {presets.map((p) => (
+            <button
+              key={p}
+              onClick={() => setSelected(p)}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 10,
+                border: selected === p ? "2px solid #3b82f6" : "1px solid var(--border)",
+                background: selected === p ? "rgba(59,130,246,0.08)" : "#fff",
+                color: selected === p ? "#3b82f6" : "var(--text)",
+                fontWeight: selected === p ? 700 : 500,
+                fontSize: 13,
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "all 0.15s",
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        {selected === "Custom Range" && (
+          <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 4 }}>FROM (YYYY-MM)</div>
+              <input
+                type="month"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 12, outline: "none" }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 4 }}>TO (YYYY-MM)</div>
+              <input
+                type="month"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 12, outline: "none" }}
+              />
+            </div>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1px solid var(--border)", background: "#fff", color: "var(--text)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleApply}
+            style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: "#3b82f6", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Corporate Detail Popup ───────────────────────────────────────────────────
+
+function CorporateDetailPopup({
+  corporate,
+  trips,
+  onClose,
+}: {
+  corporate: string;
+  trips: TripRow[];
+  onClose: () => void;
+}) {
+  const corpTrips = trips.filter((r) => r["Corporate Name"] === corporate);
+  const totalRevenue = corpTrips.reduce((s, r) => s + n(r["Total"]), 0);
+  const totalKms = corpTrips.reduce((s, r) => s + n(r["Total Kms"]), 0);
+  const successTrips = corpTrips.filter((r) => r["Payment Status"] === "Success").length;
+
+  // Ownership breakdown
+  const ownershipMap: Record<string, { trips: number; revenue: number }> = {};
+  corpTrips.forEach((r) => {
+    const k = (r["Ownership Type"] || "UNKNOWN").toUpperCase();
+    if (!ownershipMap[k]) ownershipMap[k] = { trips: 0, revenue: 0 };
+    ownershipMap[k].trips++;
+    ownershipMap[k].revenue += n(r["Total"]);
+  });
+  const ownershipBreakdown = Object.entries(ownershipMap).map(([k, v]) => ({
+    label: k,
+    ...v,
+    color: OWNERSHIP_COLORS[k] || "#94a3b8",
+  })).sort((a, b) => b.revenue - a.revenue);
+
+  // Monthly trend
+  const monthlyMap: Record<string, number> = {};
+  corpTrips.forEach((r) => {
+    const k = r["Invoice Month"] || "Unknown";
+    monthlyMap[k] = (monthlyMap[k] || 0) + n(r["Total"]);
+  });
+  const monthlyData = Object.entries(monthlyMap)
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  // Source branches for this corporate
+  const branchMap: Record<string, number> = {};
+  corpTrips.forEach((r) => {
+    const k = r["Source Branch"] || "Unknown";
+    branchMap[k] = (branchMap[k] || 0) + n(r["Total"]);
+  });
+  const branchBreakdown = Object.entries(branchMap)
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(15,23,42,0.5)",
+        backdropFilter: "blur(3px)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 20,
+          boxShadow: "0 32px 80px rgba(0,0,0,0.22)",
+          padding: "28px 32px",
+          width: "min(700px, 95vw)",
+          maxHeight: "85vh",
+          overflowY: "auto",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "var(--text)", marginBottom: 3 }}>{corporate}</div>
+            <div style={{ fontSize: 12, color: "var(--text3)" }}>{corpTrips.length} trips · {fmtCr(totalRevenue)} total revenue</div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ padding: "6px 14px", borderRadius: 9, border: "1px solid var(--border)", background: "#fff", color: "var(--text3)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+          >
+            ✕ Close
+          </button>
+        </div>
+
+        {/* KPIs */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+          {[
+            { label: "Total Revenue", value: fmtCr(totalRevenue), accent: "#3b82f6" },
+            { label: "Total Trips", value: corpTrips.length.toString(), accent: "#6366f1" },
+            { label: "Success Rate", value: `${corpTrips.length ? Math.round((successTrips / corpTrips.length) * 100) : 0}%`, accent: "#10b981" },
+            { label: "Total Kms", value: `${(totalKms / 1000).toFixed(1)}K`, accent: "#f59e0b" },
+          ].map((k) => (
+            <div key={k.label} style={{ flex: "1 1 120px", background: "#f8fafc", borderRadius: 12, padding: "14px 16px" }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{k.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: k.accent }}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Ownership breakdown */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 12 }}>Fleet Ownership Split</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {ownershipBreakdown.map((o) => (
+              <div
+                key={o.label}
+                style={{
+                  flex: "1 1 120px",
+                  background: OWNERSHIP_BG[o.label] || "rgba(100,116,139,0.08)",
+                  border: `1.5px solid ${OWNERSHIP_COLORS[o.label] || "#94a3b8"}30`,
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: o.color, display: "inline-block" }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: o.color }}>{o.label}</span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", marginBottom: 2 }}>{fmtShort(o.revenue)}</div>
+                <div style={{ fontSize: 10, color: "var(--text3)" }}>{o.trips} trips</div>
+                {o.label === "SELF" && (
+                  <div style={{ fontSize: 9, color: "#3b82f6", marginTop: 4, fontWeight: 600 }}>💰 Full profit retained</div>
+                )}
+                {o.label === "SPOT" && (
+                  <div style={{ fontSize: 9, color: "#f59e0b", marginTop: 4, fontWeight: 600 }}>⚡ Spot — margin variable</div>
+                )}
+                {o.label === "ALLOTTED" && (
+                  <div style={{ fontSize: 9, color: "#10b981", marginTop: 4, fontWeight: 600 }}>🔗 Allotted — credit shared</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Monthly trend */}
+        {monthlyData.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 10 }}>Monthly Revenue</div>
+            <SvgBarChart data={monthlyData} height={140} />
+          </div>
+        )}
+
+        {/* Branch breakdown */}
+        {branchBreakdown.length > 0 && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 10 }}>Source Branches</div>
+            <BarList items={branchBreakdown} valueFormatter={fmtShort} colorFn={(i) => ["#6366f1","#3b82f6","#0ea5e9","#14b8a6","#10b981","#84cc16"][i % 6]} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tooltip popup for line chart point ───────────────────────────────────────
+
+function LineChartTooltip({
+  point,
+  allData,
+  anchorX,
+  anchorY,
+  trips,
+  onClose,
+}: {
+  point: { label: string; value: number; index: number };
+  allData: { label: string; value: number }[];
+  anchorX: number;
+  anchorY: number;
+  trips: TripRow[];
+  onClose: () => void;
+}) {
+  const monthTrips = trips.filter((r) => r["Invoice Month"] === point.label);
+  const prev = point.index > 0 ? allData[point.index - 1] : null;
+  const delta = prev ? ((point.value - prev.value) / prev.value) * 100 : null;
+
+  const ownershipMap: Record<string, { trips: number; revenue: number }> = {};
+  monthTrips.forEach((r) => {
+    const k = (r["Ownership Type"] || "UNKNOWN").toUpperCase();
+    if (!ownershipMap[k]) ownershipMap[k] = { trips: 0, revenue: 0 };
+    ownershipMap[k].trips++;
+    ownershipMap[k].revenue += n(r["Total"]);
+  });
+
+  // Position: center of visible viewport
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(15,23,42,0.4)",
+        backdropFilter: "blur(2px)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+          padding: "22px 26px",
+          width: "min(420px, 90vw)",
+          border: "1.5px solid rgba(59,130,246,0.15)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)" }}>{point.label}</div>
+            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{monthTrips.length} trips this month</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#3b82f6" }}>{fmtCr(point.value)}</div>
+            {delta !== null && (
+              <div style={{ fontSize: 11, fontWeight: 700, color: delta >= 0 ? "#10b981" : "#ef4444" }}>
+                {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% vs prev
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Ownership breakdown for this month */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+          {Object.entries(ownershipMap)
+            .sort((a, b) => b[1].revenue - a[1].revenue)
+            .map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 10, background: OWNERSHIP_BG[k] || "#f8fafc" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: OWNERSHIP_COLORS[k] || "#94a3b8", display: "inline-block" }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: OWNERSHIP_COLORS[k] || "#64748b" }}>{k}</span>
+                  <span style={{ fontSize: 11, color: "var(--text3)" }}>{v.trips} trips</span>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{fmtShort(v.revenue)}</span>
+              </div>
+            ))}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <button
+            onClick={onClose}
+            style={{ padding: "7px 22px", borderRadius: 9, border: "1px solid var(--border)", background: "#fff", color: "var(--text3)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Ownership Profit Analysis Card ───────────────────────────────────────────
+
+function OwnershipProfitCard({
+  ownershipData,
+}: {
+  ownershipData: { label: string; trips: number; revenue: number; color: string }[];
+}) {
+  const selfData = ownershipData.find((o) => o.label === "SELF");
+  const spotData = ownershipData.find((o) => o.label === "SPOT");
+  const allottedData = ownershipData.find((o) => o.label === "ALLOTTED");
+  const total = ownershipData.reduce((s, o) => s + o.revenue, 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontSize: 11, color: "var(--text3)", lineHeight: 1.5 }}>
+        <strong style={{ color: "var(--text)" }}>SELF</strong> vehicles = 100% profit yours. <strong style={{ color: "var(--text)" }}>ALLOTTED</strong> = tied to vendor credit, partial margin. <strong style={{ color: "var(--text)" }}>SPOT</strong> = variable margin based on rate.
+      </div>
+      {[
+        { data: selfData, label: "SELF", desc: "Full profit retained", icon: "💰", note: "If all trips were SELF" },
+        { data: spotData, label: "SPOT", desc: "Spot rate — variable profit", icon: "⚡", note: "Revenue shown, margin varies" },
+        { data: allottedData, label: "ALLOTTED", desc: "Vendor credit — shared margin", icon: "🔗", note: "Credit belongs to vendor" },
+      ].map(({ data, label, desc, icon, note }) => (
+        data ? (
+          <div
+            key={label}
+            style={{
+              padding: "12px 14px",
+              borderRadius: 12,
+              background: OWNERSHIP_BG[label] || "#f8fafc",
+              border: `1px solid ${OWNERSHIP_COLORS[label] || "#94a3b8"}30`,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: OWNERSHIP_COLORS[label] || "#64748b" }}>
+                {icon} {label}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{fmtShort(data.revenue)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 10, color: "var(--text3)" }}>{data.trips} trips · {total ? ((data.revenue / total) * 100).toFixed(0) : 0}% of revenue</span>
+              <span style={{ fontSize: 10, color: "var(--text3)", fontStyle: "italic" }}>{desc}</span>
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <MiniBar pct={total ? (data.revenue / total) * 100 : 0} color={OWNERSHIP_COLORS[label] || "#94a3b8"} />
+            </div>
+            {label === "SELF" && total > 0 && (
+              <div style={{ marginTop: 6, fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>
+                Potential if ALLOTTED/SPOT were SELF: {fmtShort(total)} (↑{fmtShort(total - data.revenue)} more)
+              </div>
+            )}
+          </div>
+        ) : null
+      ))}
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
@@ -278,10 +989,15 @@ interface Props {
   loading: boolean;
   onUpload: (file: File) => void;
   uploading: boolean;
+  /** If set, dashboard only shows data for this branch (branch login mode) */
+  loggedInBranch?: string;
+  /** "source" | "service" — how the branch is tied to data */
+  branchMode?: "source" | "service";
 }
 
-export default function RevenueIntelligence({ trips, loading, onUpload, uploading }: Props) {
-  const [filterBranch, setFilterBranch] = useState("");
+export default function RevenueIntelligence({ trips, loading, onUpload, uploading, loggedInBranch, branchMode = "source" }: Props) {
+  const [filterBranch, setFilterBranch] = useState(loggedInBranch || "");
+  const [filterBranchMode, setFilterBranchMode] = useState<"source" | "service">(branchMode);
   const [filterMonth, setFilterMonth] = useState("");
   const [filterOwnership, setFilterOwnership] = useState("");
   const [filterCorporate, setFilterCorporate] = useState("");
@@ -291,9 +1007,25 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
   const [tablePage, setTablePage] = useState(0);
   const TABLE_PAGE_SIZE = 20;
 
+  // Popup states
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateRange, setDateRange] = useState<{ label: string; from?: string; to?: string }>({ label: "Anytime" });
+  const [selectedCorporate, setSelectedCorporate] = useState<string | null>(null);
+  const [lineChartTooltip, setLineChartTooltip] = useState<{ point: { label: string; value: number; index: number }; x: number; y: number } | null>(null);
+
+  // Lock branch filter if logged in as branch
+  useEffect(() => {
+    if (loggedInBranch) {
+      setFilterBranch(loggedInBranch);
+      setFilterBranchMode(branchMode);
+    }
+  }, [loggedInBranch, branchMode]);
+
   // ── Filter options ──────────────────────────────────────────────────────────
 
-  const branches = useMemo(() => [...new Set(trips.map((r) => r["Source Branch"] || r["Duty City"] || "").filter(Boolean))].sort(), [trips]);
+  const sourceBranches = useMemo(() => [...new Set(trips.map((r) => r["Source Branch"] || "").filter(Boolean))].sort(), [trips]);
+  const serviceBranches = useMemo(() => [...new Set(trips.map((r) => r["Service Branch"] || r["Duty City"] || "").filter(Boolean))].sort(), [trips]);
+  const allBranches = useMemo(() => [...new Set([...sourceBranches, ...serviceBranches])].sort(), [sourceBranches, serviceBranches]);
   const invoiceMonths = useMemo(() => [...new Set(trips.map((r) => r["Invoice Month"] || "").filter(Boolean))].sort(), [trips]);
   const corporates = useMemo(() => [...new Set(trips.map((r) => r["Corporate Name"] || "").filter(Boolean))].sort(), [trips]);
 
@@ -301,14 +1033,26 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
 
   const filtered = useMemo(() => {
     return trips.filter((r) => {
-      if (filterBranch && (r["Source Branch"] || r["Duty City"]) !== filterBranch) return false;
+      // Branch filter — check source OR service branch based on mode, or both if no mode
+      if (filterBranch) {
+        const sourceBranch = r["Source Branch"] || "";
+        const serviceBranch = r["Service Branch"] || r["Duty City"] || "";
+        if (filterBranchMode === "source" && sourceBranch !== filterBranch) return false;
+        if (filterBranchMode === "service" && serviceBranch !== filterBranch) return false;
+      }
+      // Date range filter (by Invoice Month)
+      if (dateRange.from || dateRange.to) {
+        const m = r["Invoice Month"] || "";
+        if (dateRange.from && m < dateRange.from) return false;
+        if (dateRange.to && m > dateRange.to) return false;
+      }
       if (filterMonth && r["Invoice Month"] !== filterMonth) return false;
       if (filterOwnership && (r["Ownership Type"] || "").toUpperCase() !== filterOwnership) return false;
       if (filterCorporate && r["Corporate Name"] !== filterCorporate) return false;
       if (filterPayment && r["Payment Status"] !== filterPayment) return false;
       return true;
     });
-  }, [trips, filterBranch, filterMonth, filterOwnership, filterCorporate, filterPayment]);
+  }, [trips, filterBranch, filterBranchMode, dateRange, filterMonth, filterOwnership, filterCorporate, filterPayment]);
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
 
@@ -400,16 +1144,38 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
       .slice(0, 8);
   }, [filtered]);
 
-  // ── Monthly trend ───────────────────────────────────────────────────────────
+  // ── Service branch breakdown ─────────────────────────────────────────────────
 
-  const monthlyTrend = useMemo(() => {
-    const map: Record<string, number> = {};
+  const serviceBranchData = useMemo(() => {
+    const map: Record<string, { revenue: number; trips: number }> = {};
     filtered.forEach((r) => {
-      const k = r["Invoice Month"] || "Unknown";
-      map[k] = (map[k] || 0) + n(r["Total"]);
+      const k = r["Service Branch"] || r["Duty City"] || "Unknown";
+      if (!map[k]) map[k] = { revenue: 0, trips: 0 };
+      map[k].revenue += n(r["Total"]);
+      map[k].trips++;
     });
     return Object.entries(map)
-      .map(([label, value]) => ({ label, value }))
+      .map(([label, v]) => ({ label, value: v.revenue, sub: `${v.trips} trips` }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }, [filtered]);
+
+  // ── Monthly trend with ownership breakdown ──────────────────────────────────
+
+  const monthlyTrend = useMemo(() => {
+    const map: Record<string, { self: number; spot: number; allotted: number; total: number }> = {};
+    filtered.forEach((r) => {
+      const k = r["Invoice Month"] || "Unknown";
+      if (!map[k]) map[k] = { self: 0, spot: 0, allotted: 0, total: 0 };
+      const ownership = (r["Ownership Type"] || "").toUpperCase();
+      const val = n(r["Total"]);
+      map[k].total += val;
+      if (ownership === "SELF") map[k].self += val;
+      else if (ownership === "SPOT") map[k].spot += val;
+      else if (ownership === "ALLOTTED") map[k].allotted += val;
+    });
+    return Object.entries(map)
+      .map(([label, v]) => ({ label, ...v, value: v.total }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [filtered]);
 
@@ -446,7 +1212,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
   const totalTablePages = Math.ceil(searchedTrips.length / TABLE_PAGE_SIZE);
 
   // Reset page on search/filter change
-  useEffect(() => setTablePage(0), [tableSearch, filterBranch, filterMonth, filterOwnership, filterCorporate, filterPayment]);
+  useEffect(() => setTablePage(0), [tableSearch, filterBranch, filterMonth, filterOwnership, filterCorporate, filterPayment, dateRange]);
 
   // ── Empty / loading states ──────────────────────────────────────────────────
 
@@ -522,41 +1288,93 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
+      {/* ── Popups ── */}
+      {showDatePicker && (
+        <DateRangePopup
+          onClose={() => setShowDatePicker(false)}
+          onApply={(range) => setDateRange(range)}
+          initial={dateRange}
+        />
+      )}
+      {selectedCorporate && (
+        <CorporateDetailPopup
+          corporate={selectedCorporate}
+          trips={filtered}
+          onClose={() => setSelectedCorporate(null)}
+        />
+      )}
+      {lineChartTooltip && (
+        <LineChartTooltip
+          point={lineChartTooltip.point}
+          allData={monthlyTrend}
+          anchorX={lineChartTooltip.x}
+          anchorY={lineChartTooltip.y}
+          trips={filtered}
+          onClose={() => setLineChartTooltip(null)}
+        />
+      )}
+
       {/* ── Header + Upload ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.3px" }}>
             💰 Revenue Intelligence
+            {loggedInBranch && (
+              <span style={{ marginLeft: 10, fontSize: 13, fontWeight: 600, color: "#3b82f6", background: "rgba(59,130,246,0.1)", padding: "2px 10px", borderRadius: 20 }}>
+                {loggedInBranch} · {filterBranchMode === "source" ? "Source" : "Service"}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
             {filtered.length.toLocaleString()} trips · {invoiceMonths.length} months
           </div>
         </div>
-        <label
-          style={{
-            cursor: uploading ? "not-allowed" : "pointer",
-            fontSize: 12,
-            fontWeight: 700,
-            padding: "7px 16px",
-            borderRadius: 9,
-            background: "var(--accent-glow)",
-            color: "var(--accent2)",
-            border: "1px solid rgba(59,130,246,0.2)",
-          }}
-        >
-          {uploading ? "Uploading…" : "+ Upload Revenue File"}
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            style={{ display: "none" }}
-            disabled={uploading}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onUpload(f);
-              e.target.value = "";
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {/* Date range button */}
+          <button
+            onClick={() => setShowDatePicker(true)}
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              padding: "7px 16px",
+              borderRadius: 9,
+              background: dateRange.label !== "Anytime" ? "rgba(59,130,246,0.1)" : "#fff",
+              color: dateRange.label !== "Anytime" ? "#3b82f6" : "var(--text)",
+              border: "1px solid " + (dateRange.label !== "Anytime" ? "rgba(59,130,246,0.3)" : "var(--border)"),
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
             }}
-          />
-        </label>
+          >
+            📅 {dateRange.label}
+          </button>
+          <label
+            style={{
+              cursor: uploading ? "not-allowed" : "pointer",
+              fontSize: 12,
+              fontWeight: 700,
+              padding: "7px 16px",
+              borderRadius: 9,
+              background: "var(--accent-glow)",
+              color: "var(--accent2)",
+              border: "1px solid rgba(59,130,246,0.2)",
+            }}
+          >
+            {uploading ? "Uploading…" : "+ Upload Revenue File"}
+            <input
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              style={{ display: "none" }}
+              disabled={uploading}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onUpload(f);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        </div>
       </div>
 
       {/* ── Filters ── */}
@@ -575,14 +1393,52 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
           FILTERS
         </span>
-        <FilterPill label="Branch" options={branches} value={filterBranch} onChange={setFilterBranch} />
+        {/* Branch filter — show both source and service, locked if branch login */}
+        {!loggedInBranch ? (
+          <>
+            <FilterPill label="Source Branch" options={sourceBranches} value={filterBranchMode === "source" ? filterBranch : ""} onChange={(v) => { setFilterBranchMode("source"); setFilterBranch(v); }} />
+            <FilterPill label="Service Branch" options={serviceBranches} value={filterBranchMode === "service" ? filterBranch : ""} onChange={(v) => { setFilterBranchMode("service"); setFilterBranch(v); }} />
+          </>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", textTransform: "uppercase" }}>Branch Mode</span>
+            <div style={{ display: "flex", gap: 4 }}>
+              {["source", "service"].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setFilterBranchMode(m as "source" | "service")}
+                  style={{
+                    padding: "3px 10px",
+                    borderRadius: 6,
+                    border: "1px solid var(--border)",
+                    background: filterBranchMode === m ? "#3b82f6" : "#fff",
+                    color: filterBranchMode === m ? "#fff" : "var(--text)",
+                    fontWeight: 600,
+                    fontSize: 11,
+                    cursor: "pointer",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <FilterPill label="Month" options={invoiceMonths} value={filterMonth} onChange={setFilterMonth} />
         <FilterPill label="Ownership" options={["SELF", "SPOT", "ALLOTTED"]} value={filterOwnership} onChange={setFilterOwnership} />
         <FilterPill label="Corporate" options={corporates} value={filterCorporate} onChange={setFilterCorporate} />
         <FilterPill label="Payment" options={["Success", "NoAction", "Pending"]} value={filterPayment} onChange={setFilterPayment} />
-        {(filterBranch || filterMonth || filterOwnership || filterCorporate || filterPayment) && (
+        {(filterBranch || filterMonth || filterOwnership || filterCorporate || filterPayment || dateRange.label !== "Anytime") && (
           <button
-            onClick={() => { setFilterBranch(""); setFilterMonth(""); setFilterOwnership(""); setFilterCorporate(""); setFilterPayment(""); }}
+            onClick={() => {
+              if (!loggedInBranch) setFilterBranch("");
+              setFilterMonth("");
+              setFilterOwnership("");
+              setFilterCorporate("");
+              setFilterPayment("");
+              setDateRange({ label: "Anytime" });
+            }}
             style={{ fontSize: 11, fontWeight: 600, color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "none", borderRadius: 7, padding: "4px 10px", cursor: "pointer" }}
           >
             Clear All
@@ -600,8 +1456,8 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
         <KpiCard label="Corporates" value={kpis.corporateCount.toString()} sub="unique clients" />
       </div>
 
-      {/* ── Row 2: Ownership split + Top corporates ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 14 }}>
+      {/* ── Row 2: Ownership split + Ownership profit analysis + Top corporates ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.6fr", gap: 14 }}>
 
         {/* Ownership split */}
         <div style={card}>
@@ -639,13 +1495,47 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
           </div>
         </div>
 
-        {/* Top corporates */}
+        {/* Ownership Profit Analysis */}
+        <div style={card}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+            Profit Allocation
+            <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>SELF vs SPOT vs ALLOTTED</span>
+          </div>
+          <OwnershipProfitCard ownershipData={ownershipData} />
+        </div>
+
+        {/* Top corporates — clickable */}
         <div style={card}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
             Top Corporate Clients
-            <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>by total billed</span>
+            <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>click for details</span>
           </div>
-          <BarList items={topCorporates} valueFormatter={fmtShort} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {topCorporates.map((corp, i) => {
+              const max = Math.max(...topCorporates.map((x) => x.value), 1);
+              const CORP_COLORS = ["#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#14b8a6", "#f97316", "#0ea5e9", "#a855f7"];
+              return (
+                <div
+                  key={corp.label}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setSelectedCorporate(corp.label)}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                    <span style={{ fontSize: 12, color: "var(--text)", fontWeight: 500, maxWidth: "60%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: CORP_COLORS[i % CORP_COLORS.length], display: "inline-block", flexShrink: 0 }} />
+                      {corp.label}
+                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {corp.sub && <span style={{ fontSize: 11, color: "var(--text3)" }}>{corp.sub}</span>}
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{fmtShort(corp.value)}</span>
+                      <span style={{ fontSize: 10, color: "#3b82f6" }}>↗</span>
+                    </div>
+                  </div>
+                  <MiniBar pct={(corp.value / max) * 100} color={CORP_COLORS[i % CORP_COLORS.length]} />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -656,83 +1546,57 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
             Usage Type Breakdown
             <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>by revenue</span>
           </div>
-          <BarList items={usageData} valueFormatter={fmtShort} colorFn={(i) => ["#3b82f6","#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#14b8a6","#f97316"][i % 8]} />
+          <SvgBarChart data={usageData} height={180} colorFn={(i) => ["#3b82f6","#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#14b8a6","#f97316"][i % 8]} />
         </div>
         <div style={card}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
             Car Type Performance
             <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>revenue · trips</span>
           </div>
-          <BarList
-            items={carTypeData}
-            valueFormatter={fmtShort}
-            colorFn={(i) => ["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#14b8a6","#f97316","#6366f1"][i % 8]}
-          />
+          <SvgBarChart data={carTypeData} height={180} colorFn={(i) => ["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#14b8a6","#f97316","#6366f1"][i % 8]} />
         </div>
       </div>
 
-      {/* ── Row 4: Source branch + Monthly trend + Upgrades ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 0.8fr", gap: 14 }}>
-
-        {/* Source branch */}
+      {/* ── Row 4: Source branch + Service branch ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <div style={card}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16 }}>
             Revenue by Source Branch
           </div>
-          <BarList items={branchData} valueFormatter={fmtShort} colorFn={(i) => ["#6366f1","#3b82f6","#0ea5e9","#14b8a6","#10b981","#84cc16","#f59e0b","#f97316"][i % 8]} />
+          <SvgBarChart data={branchData} height={180} colorFn={(i) => ["#6366f1","#3b82f6","#0ea5e9","#14b8a6","#10b981","#84cc16","#f59e0b","#f97316"][i % 8]} />
         </div>
-
-        {/* Monthly trend */}
         <div style={card}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16 }}>
+            Revenue by Service Branch
+          </div>
+          <SvgBarChart data={serviceBranchData} height={180} colorFn={(i) => ["#f97316","#f59e0b","#10b981","#14b8a6","#3b82f6","#6366f1","#8b5cf6","#ec4899"][i % 8]} />
+        </div>
+      </div>
+
+      {/* ── Row 5: Monthly Revenue Trend (multi-bar) + Upgrades ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.8fr 0.8fr", gap: 14 }}>
+
+        {/* Monthly trend — multi-series bar + line overlay clickable */}
+        <div style={card}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             Monthly Revenue Trend
-            <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>invoice month</span>
+            <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>click a point for details · invoice month</span>
           </div>
           {monthlyTrend.length === 0 ? (
             <div style={{ fontSize: 12, color: "var(--text3)" }}>No month data</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {monthlyTrend.map((m, i) => {
-                const max = Math.max(...monthlyTrend.map((x) => x.value), 1);
-                const prev = i > 0 ? monthlyTrend[i - 1].value : null;
-                const delta = prev ? ((m.value - prev) / prev) * 100 : null;
-                return (
-                  <div key={m.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 11, color: "var(--text3)", width: 72, flexShrink: 0 }}>{m.label}</span>
-                    <div style={{ flex: 1, height: 18, borderRadius: 5, background: "var(--border)", overflow: "hidden", position: "relative" }}>
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          top: 0,
-                          height: "100%",
-                          width: `${(m.value / max) * 100}%`,
-                          background: "linear-gradient(90deg, #3b82f6, #6366f1)",
-                          borderRadius: 5,
-                        }}
-                      />
-                    </div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", width: 68, textAlign: "right", flexShrink: 0 }}>
-                      {fmtShort(m.value)}
-                    </span>
-                    {delta !== null && (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: delta >= 0 ? "#10b981" : "#ef4444",
-                          width: 38,
-                          textAlign: "right",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {delta >= 0 ? "+" : ""}{delta.toFixed(0)}%
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <>
+              {/* Multi-bar chart: SELF / SPOT / ALLOTTED / TOTAL */}
+              <MultiBarChart data={monthlyTrend} height={200} />
+              <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 8 }}>Total Revenue Line (click for monthly breakdown)</div>
+                <LineChart
+                  data={monthlyTrend.map((m) => ({ label: m.label, value: m.total }))}
+                  height={150}
+                  onClick={(point, x, y) => setLineChartTooltip({ point, x, y })}
+                />
+              </div>
+            </>
           )}
         </div>
 
@@ -788,7 +1652,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
-                {["Booking Ref", "Invoice Month", "Corporate", "Source Branch", "Car Sent", "Ownership", "Usage Type", "Upgrade", "Kms", "Total", "Payment"].map((h) => (
+                {["Booking Ref", "Invoice Month", "Corporate", "Source Branch", "Service Branch", "Car Sent", "Ownership", "Usage Type", "Upgrade", "Kms", "Total", "Payment"].map((h) => (
                   <th
                     key={h}
                     style={{
@@ -831,6 +1695,9 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     <td style={{ padding: "8px 12px", color: "var(--text3)", whiteSpace: "nowrap" }}>
                       {r["Source Branch"] || "—"}
                     </td>
+                    <td style={{ padding: "8px 12px", color: "var(--text3)", whiteSpace: "nowrap" }}>
+                      {r["Service Branch"] || r["Duty City"] || "—"}
+                    </td>
                     <td style={{ padding: "8px 12px", color: "var(--text)", whiteSpace: "nowrap" }}>
                       {r["Car Sent"] || r["Car Booked"] || "—"}
                     </td>
@@ -872,7 +1739,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
               })}
               {pagedTrips.length === 0 && (
                 <tr>
-                  <td colSpan={11} style={{ padding: 32, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
+                  <td colSpan={12} style={{ padding: 32, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
                     No trips match your filters
                   </td>
                 </tr>
