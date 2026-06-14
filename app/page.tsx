@@ -15,6 +15,7 @@ import RevenueIntelligence, { type TripRow } from "./components/RevenueIntellige
 import type { FleetRow } from "./lib/types";
 import { num } from "./lib/dataUtils";
 import { getStoredUser } from "./lib/auth";
+import VehicleTrend from "./components/VehicleTrend";
 
 const MONTH_ORDER = [
   "April", "May", "June", "July", "August", "September",
@@ -327,6 +328,7 @@ export default function Home() {
               <PnLTable data={filteredData} />
               <Charts data={filteredData} />
               <DecisionPanel data={filteredData} />
+              <VehicleTrend data={filteredData} />
               <VehicleTable data={filteredData} />
             </>
           ) : (
