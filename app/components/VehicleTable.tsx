@@ -15,6 +15,7 @@ interface AggRow {
   totalRevenue: number;
   totalCost: number;
   totalProfit: number;
+  profitMargin: number;
   months: number;
   monthList: string[];
   rows: FleetRow[];
@@ -29,13 +30,8 @@ function aggregateRows(data: FleetRow[]): AggRow[] {
         reg,
         model: r.Model || "—",
         branch: r.Branch || "—",
-        totalKms: 0,
-        totalRevenue: 0,
-        totalCost: 0,
-        totalProfit: 0,
-        months: 0,
-        monthList: [],
-        rows: [],
+        totalKms: 0, totalRevenue: 0, totalCost: 0, totalProfit: 0, profitMargin: 0,
+        months: 0, monthList: [], rows: [],
       });
     }
     const agg = map.get(reg)!;
@@ -47,15 +43,19 @@ function aggregateRows(data: FleetRow[]): AggRow[] {
     if (r.Month && r.Year) agg.monthList.push(`${r.Month.substring(0, 3)}-${r.Year.slice(2)}`);
     agg.rows.push(r);
   });
+  // compute margin after aggregation
+  for (const agg of map.values()) {
+    agg.profitMargin = agg.totalRevenue > 0 ? (agg.totalProfit / agg.totalRevenue) * 100 : 0;
+  }
   return [...map.values()];
 }
 
 function downloadCSV(data: AggRow[]) {
   const headers = ["Reg. Number", "Model", "Branch", "Months", "Total KMS", "Total Revenue", "Total Cost", "Total Profit", "Margin %"];
-  const rows = data.map(r => {
-    const margin = r.totalRevenue > 0 ? (r.totalProfit / r.totalRevenue * 100).toFixed(1) : "0";
-    return [r.reg, r.model, r.branch, r.months, r.totalKms, r.totalRevenue, r.totalCost, r.totalProfit, margin];
-  });
+  const rows = data.map(r => [
+    r.reg, r.model, r.branch, r.months, r.totalKms, r.totalRevenue, r.totalCost, r.totalProfit,
+    r.totalRevenue > 0 ? (r.totalProfit / r.totalRevenue * 100).toFixed(1) : "0",
+  ]);
   const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -139,12 +139,16 @@ function ExpandedRows({ rows }: { rows: FleetRow[] }) {
   );
 }
 
+type QuickFilter = "all" | "unprofitable" | "idle";
+
 export default function VehicleTable({ data }: { data: FleetRow[] }) {
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<keyof AggRow>("totalRevenue");
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // #18: quick filter
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
 
   const handleSort = (col: keyof AggRow) => {
     if (sortCol === col) setSortDir(d => (d === 1 ? -1 : 1));
@@ -164,13 +168,14 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return aggregated.filter(r =>
-      !q ||
-      r.reg.toLowerCase().includes(q) ||
-      r.model.toLowerCase().includes(q) ||
-      r.branch.toLowerCase().includes(q)
-    );
-  }, [aggregated, search]);
+    return aggregated.filter(r => {
+      if (q && !r.reg.toLowerCase().includes(q) && !r.model.toLowerCase().includes(q) && !r.branch.toLowerCase().includes(q)) return false;
+      // #18
+      if (quickFilter === "unprofitable" && r.totalProfit >= 0) return false;
+      if (quickFilter === "idle" && r.totalRevenue > 0) return false;
+      return true;
+    });
+  }, [aggregated, search, quickFilter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -183,6 +188,10 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
   const pages = Math.ceil(sorted.length / PAGE_SIZE);
   const start = (page - 1) * PAGE_SIZE;
   const slice = sorted.slice(start, start + PAGE_SIZE);
+
+  // counts for quick filter badges
+  const unprofitableCount = useMemo(() => aggregated.filter(r => r.totalProfit < 0).length, [aggregated]);
+  const idleCount = useMemo(() => aggregated.filter(r => r.totalRevenue === 0).length, [aggregated]);
 
   const Th = ({ label, col }: { label: string; col?: keyof AggRow }) => (
     <th
@@ -201,20 +210,38 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
   const pageNums: number[] = [];
   for (let p = Math.max(1, page - 2); p <= Math.min(pages, page + 2); p++) pageNums.push(p);
 
+  const qfBtn = (label: string, value: QuickFilter, count?: number) => (
+    <button
+      onClick={() => { setQuickFilter(value); setPage(1); }}
+      className="text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors"
+      style={{
+        background: quickFilter === value ? "var(--accent)" : "var(--surface2)",
+        color: quickFilter === value ? "#fff" : "var(--text2)",
+        border: `1px solid ${quickFilter === value ? "var(--accent)" : "var(--border2)"}`,
+      }}
+    >
+      {label}{count !== undefined ? ` (${count})` : ""}
+    </button>
+  );
+
   return (
     <div className="rounded-2xl overflow-hidden mb-3.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3" style={{ borderBottom: "1px solid var(--border)" }}>
         <div>
           <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>Vehicle Details</div>
           <div className="text-xs mt-0.5" style={{ color: "var(--text3)" }}>
-            {sorted.length} unique vehicles · click row to expand months
+            {sorted.length} vehicles · click row to expand months
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* #18 quick filters */}
+          {qfBtn("All", "all")}
+          {qfBtn("Unprofitable", "unprofitable", unprofitableCount)}
+          {qfBtn("Idle", "idle", idleCount)}
           <input
             className="table-search"
             type="text"
-            placeholder="Search registration, model, branch…"
+            placeholder="Search reg, model, branch…"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
           />
@@ -241,32 +268,43 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
             <tr>
               <Th label="Reg. Number" col="reg" />
               <Th label="Model" col="model" />
+              <Th label="Branch" col="branch" />
               <Th label="Total KMS" col="totalKms" />
               <Th label="Revenue" col="totalRevenue" />
               <Th label="Cost" col="totalCost" />
               <Th label="Profit" col="totalProfit" />
-              <Th label="Margin" />
+              {/* #17: sortable margin column */}
+              <Th label="Margin %" col="profitMargin" />
             </tr>
           </thead>
           <tbody>
             {slice.map((r) => {
-              const margin = r.totalRevenue > 0 ? (r.totalProfit / r.totalRevenue * 100) : null;
+              const margin = r.totalRevenue > 0 ? r.profitMargin : null;
               const maxRev = 3000000;
               const barW = Math.max(2, Math.min(80, r.totalRevenue / maxRev * 80));
               const isOpen = expanded.has(r.reg);
+              // #16: red tint for unprofitable vehicles
+              const isUnprofitable = r.totalRevenue > 0 && r.totalProfit < 0;
+              const rowBg = isOpen ? "var(--accent-glow)" : isUnprofitable ? "rgba(220,38,38,0.04)" : "transparent";
 
               return (
                 <>
                   <tr
                     key={r.reg}
-                    style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+                    style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", background: rowBg }}
                     onClick={() => toggleExpand(r.reg)}
-                    onMouseEnter={e => (e.currentTarget.style.background = "var(--surface2)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = isOpen ? "var(--accent-glow)" : "transparent")}
+                    onMouseEnter={e => (e.currentTarget.style.background = isUnprofitable ? "rgba(220,38,38,0.08)" : "var(--surface2)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = rowBg)}
                   >
                     <td className="px-3.5 py-2.5 text-xs font-mono font-bold" style={{ color: "var(--text)" }}>
                       <span style={{ marginRight: 6, color: "var(--text3)", fontSize: 10 }}>{isOpen ? "▼" : "▶"}</span>
                       {r.reg}
+                      {/* #16: loss flag */}
+                      {isUnprofitable && (
+                        <span style={{ marginLeft: 5, fontSize: 9, color: "#dc2626", background: "rgba(220,38,38,0.1)", padding: "1px 5px", borderRadius: 4, fontFamily: "inherit", fontWeight: 700 }}>
+                          LOSS
+                        </span>
+                      )}
                       <span className="ml-2 text-xs font-semibold px-1.5 py-0.5 rounded"
                         style={{ background: "var(--surface2)", color: "var(--text3)", border: "1px solid var(--border)", fontSize: 9 }}>
                         {r.months}mo
@@ -276,6 +314,9 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "var(--accent-glow)", color: "var(--accent2)" }}>
                         {r.model}
                       </span>
+                    </td>
+                    <td className="px-3.5 py-2.5 text-xs capitalize" style={{ color: "var(--text2)" }}>
+                      {r.branch}
                     </td>
                     <td className="px-3.5 py-2.5 text-xs" style={{ color: "var(--text2)" }}>
                       {r.totalKms.toLocaleString("en-IN")}
@@ -296,6 +337,7 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
                         </div>
                       ) : <span style={{ color: "var(--text3)" }}>—</span>}
                     </td>
+                    {/* #17: margin cell */}
                     <td className="px-3.5 py-2.5">
                       {margin !== null ? (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full"

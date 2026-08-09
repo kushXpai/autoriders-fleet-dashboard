@@ -1,6 +1,7 @@
 // app/components/DecisionPanel.tsx
 "use client";
 
+import { useState, useMemo } from "react";
 import type { FleetRow } from "../lib/types";
 import { num } from "../lib/dataUtils";
 
@@ -15,6 +16,63 @@ type ScoredRow = FleetRow & {
   _emi: number;
   _score: number;
 };
+
+// #14: scoring explanation tooltip
+function ScoringTooltip({ r, verdict, avgProfit, avgMargin, avgRepair }: {
+  r: ScoredRow; verdict: Verdict; avgProfit: number; avgMargin: number; avgRepair: number;
+}) {
+  const [show, setShow] = useState(false);
+  const lines: { label: string; positive: boolean }[] = [];
+
+  if (verdict === "keep") {
+    lines.push({ label: `Profit ₹${(r._prof/1e3).toFixed(0)}K vs avg ₹${(avgProfit/1e3).toFixed(0)}K`, positive: r._prof > avgProfit });
+    lines.push({ label: `Margin ${(r._margin*100).toFixed(1)}% vs avg ${(avgMargin*100).toFixed(1)}%`, positive: r._margin > avgMargin });
+    lines.push({ label: `Repair ₹${(r._repair/1e3).toFixed(0)}K vs avg ₹${(avgRepair/1e3).toFixed(0)}K`, positive: r._repair < avgRepair });
+    lines.push({ label: `KMS ${r._kms.toLocaleString("en-IN")}`, positive: r._kms > 2000 });
+  } else if (verdict === "sell") {
+    lines.push({ label: `Profit ${r._prof >= 0 ? "+" : ""}₹${(r._prof/1e3).toFixed(0)}K`, positive: false });
+    lines.push({ label: `EMI: ${r._emi > 0 ? "Active — reconsider" : "None — can sell freely"}`, positive: r._emi === 0 });
+    lines.push({ label: `Repair ₹${(r._repair/1e3).toFixed(0)}K (${(r._repair/Math.max(avgRepair,1)).toFixed(1)}× avg)`, positive: r._repair < avgRepair * 1.5 });
+    lines.push({ label: `KMS ${r._kms.toLocaleString("en-IN")} — ${r._kms < 500 ? "very low utilisation" : "acceptable"}`, positive: r._kms >= 500 });
+  } else {
+    lines.push({ label: `Margin ${(r._margin*100).toFixed(1)}% — below avg ${(avgMargin*100).toFixed(1)}%`, positive: r._margin >= avgMargin * 0.65 });
+    lines.push({ label: `Repair ${(r._repair/Math.max(avgRepair,1)).toFixed(1)}× fleet average`, positive: r._repair < avgRepair * 1.4 });
+    lines.push({ label: `KMS ${r._kms.toLocaleString("en-IN")}`, positive: r._kms >= 1000 });
+  }
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        style={{ fontSize: 10, color: "var(--text3)", background: "none", border: "none", cursor: "help", padding: "0 2px" }}
+      >
+        ⓘ why
+      </button>
+      {show && (
+        <div style={{
+          position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
+          background: "#1e293b", border: "1px solid #334155", borderRadius: 8,
+          padding: "8px 10px", zIndex: 100, minWidth: 200, boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+          pointerEvents: "none",
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#f1f5f9", marginBottom: 5 }}>Scoring factors</div>
+          {lines.map((l, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 5, marginBottom: 3 }}>
+              <span style={{ color: l.positive ? "#34d399" : "#f87171", fontSize: 9, flexShrink: 0, marginTop: 1 }}>
+                {l.positive ? "✓" : "✗"}
+              </span>
+              <span style={{ fontSize: 10, color: "#94a3b8", lineHeight: 1.4 }}>{l.label}</span>
+            </div>
+          ))}
+          <div style={{ fontSize: 9, color: "#475569", marginTop: 5, borderTop: "1px solid #334155", paddingTop: 4 }}>
+            Score: {r._score.toFixed(1)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function VehicleCard({ r, verdict, avgProfit, avgMargin, avgRepair }: {
   r: ScoredRow; verdict: Verdict; avgProfit: number; avgMargin: number; avgRepair: number;
@@ -52,11 +110,15 @@ function VehicleCard({ r, verdict, avgProfit, avgMargin, avgRepair }: {
     <div className="rounded-xl p-3" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
       <div className="flex justify-between items-center mb-2">
         <span className="font-mono font-bold text-xs" style={{ color: "#0f1c2e" }}>{r["Registration Number"] || "—"}</span>
-        <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: vs.bg, color: vs.color, border: vs.border }}>{vl}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          {/* #14 tooltip */}
+          <ScoringTooltip r={r} verdict={verdict} avgProfit={avgProfit} avgMargin={avgMargin} avgRepair={avgRepair} />
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: vs.bg, color: vs.color, border: vs.border }}>{vl}</span>
+        </div>
       </div>
       <div className="flex gap-1 flex-wrap mb-2">
         <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent-glow)", color: "var(--accent2)" }}>{r.Model || "—"}</span>
-        <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ color: "var(--text3)", background: "var(--surface)", border: "1px solid var(--border)" }}>{r._kms} km</span>
+        <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ color: "var(--text3)", background: "var(--surface)", border: "1px solid var(--border)" }}>{r._kms.toLocaleString("en-IN")} km</span>
       </div>
       <div className="grid grid-cols-3 gap-1 mb-1.5">
         {[
@@ -79,8 +141,47 @@ function VehicleCard({ r, verdict, avgProfit, avgMargin, avgRepair }: {
   );
 }
 
+// #13: export helper
+function exportToCSV(rows: ScoredRow[], verdict: string) {
+  const headers = ["Registration Number", "Model", "Branch", "Verdict", "Profit", "Margin %", "Repair Cost", "KMS", "EMI", "Score"];
+  const lines = rows.map(r => [
+    r["Registration Number"] || "—",
+    r.Model || "—",
+    r.Branch || "—",
+    verdict,
+    r._prof.toFixed(0),
+    (r._margin * 100).toFixed(1),
+    r._repair.toFixed(0),
+    r._kms.toFixed(0),
+    r._emi.toFixed(0),
+    r._score.toFixed(1),
+  ]);
+  const csv = [headers.join(","), ...lines.map(l => l.join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `vehicles-${verdict}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function DecisionPanel({ data }: { data: FleetRow[] }) {
-  const active = data.filter(r => num(r["Total Revenue"]) > 0);
+  // #15: branch filter
+  const [filterBranch, setFilterBranch] = useState("all");
+
+  const branches = useMemo(() => {
+    const bs = new Set(data.map(r => r.Branch).filter(Boolean));
+    return ["all", ...[...bs].sort()];
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    if (filterBranch === "all") return data;
+    return data.filter(r => r.Branch === filterBranch);
+  }, [data, filterBranch]);
+
+  const active = filteredData.filter(r => num(r["Total Revenue"]) > 0);
+
   if (!active.length) {
     return (
       <div className="rounded-2xl p-5 mb-3.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -115,14 +216,28 @@ export default function DecisionPanel({ data }: { data: FleetRow[] }) {
     .sort((a, b) => a._score - b._score).slice(0, 8);
   const watch = scored.filter(r => r._margin > 0 && r._margin < avgMargin * 0.65 && r._repair > avgRepair * 1.4).slice(0, 8);
 
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
   const col = (
     badge: React.ReactNode,
     items: ScoredRow[],
     verdict: Verdict,
+    csvLabel: string,
     emptyMsg?: string
   ) => (
     <div>
-      <div className="mb-2.5">{badge}</div>
+      <div className="mb-2.5 flex items-center justify-between">
+        {badge}
+        {/* #13: export button */}
+        {items.length > 0 && (
+          <button
+            onClick={() => exportToCSV(items, csvLabel)}
+            style={{ fontSize: 10, color: "var(--text3)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}
+          >
+            ↓ CSV
+          </button>
+        )}
+      </div>
       <div className="flex flex-col gap-2">
         {items.length ? (
           items.map((r, i) => (
@@ -153,10 +268,24 @@ export default function DecisionPanel({ data }: { data: FleetRow[] }) {
             Vehicle Intelligence — Keep vs Sell Advisor
           </div>
           <div className="text-xs mt-0.5" style={{ color: "var(--text3)" }}>
-            Data-driven signals to help decide which vehicles to retain or dispose
+            Data-driven signals · hover ⓘ on any vehicle to see scoring factors
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          {/* #15: branch filter */}
+          <select
+            value={filterBranch}
+            onChange={e => setFilterBranch(e.target.value)}
+            style={{
+              fontSize: 11, padding: "4px 10px", borderRadius: 8,
+              border: "1px solid var(--border)", background: "var(--surface2)",
+              color: "var(--text)", cursor: "pointer",
+            }}
+          >
+            {branches.map(b => (
+              <option key={b} value={b}>{b === "all" ? "All branches" : cap(b)}</option>
+            ))}
+          </select>
           <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "var(--green-dim)", color: "var(--green)", border: "1px solid rgba(16,185,129,0.2)" }}>Keep</span>
           <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "rgba(220,38,38,0.1)", color: "#dc2626", border: "1px solid rgba(220,38,38,0.2)" }}>Consider Selling</span>
           <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "rgba(217,119,6,0.1)", color: "#d97706", border: "1px solid rgba(217,119,6,0.2)" }}>Watch</span>
@@ -164,11 +293,11 @@ export default function DecisionPanel({ data }: { data: FleetRow[] }) {
       </div>
 
       <div className="grid gap-3.5 mt-4" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-        {col(badge(`Keep — Top ${top.length} Performers`, "#059669", "rgba(5,150,105,0.08)", "rgba(5,150,105,0.2)"), top, "keep")}
-        {col(badge(`Consider Selling — Loss + No EMI (${sellCandidates.length})`, "#dc2626", "rgba(220,38,38,0.08)", "rgba(220,38,38,0.2)"), sellCandidates, "sell",
+        {col(badge(`Keep — Top ${top.length} Performers`, "#059669", "rgba(5,150,105,0.08)", "rgba(5,150,105,0.2)"), top, "keep", "keep")}
+        {col(badge(`Consider Selling — Loss + No EMI (${sellCandidates.length})`, "#dc2626", "rgba(220,38,38,0.08)", "rgba(220,38,38,0.2)"), sellCandidates, "sell", "sell",
           "No sell candidates — all loss-making vehicles still have EMI")}
         {col(badge(`Watch — High Repair + Low Margin (${watch.length})`, "#d97706", "rgba(217,119,6,0.08)", "rgba(217,119,6,0.2)"),
-          watch, "watch", "No vehicles flagged — fleet is healthy")}
+          watch, "watch", "watch", "No vehicles flagged — fleet is healthy")}
       </div>
     </div>
   );

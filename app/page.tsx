@@ -16,6 +16,7 @@ import type { FleetRow } from "./lib/types";
 import { num } from "./lib/dataUtils";
 import { getStoredUser } from "./lib/auth";
 import VehicleTrend from "./components/VehicleTrend";
+import ManagementReport from "./components/ManagementReport";
 
 const MONTH_ORDER = [
   "April", "May", "June", "July", "August", "September",
@@ -49,10 +50,12 @@ export default function Home() {
   const [tripsUploading, setTripsUploading] = useState(false);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
-  const [activeSection, setActiveSection] = useState<"fleet" | "revenue">("fleet");
+  const [activeSection, setActiveSection] = useState<"fleet" | "revenue" | "management">("fleet");
 
   // ── Role check ─────────────────────────────────────────────────────────────
-  const isDeveloper = getStoredUser()?.role === "developer";
+  const userRole = getStoredUser()?.role;
+  const isDeveloper = userRole === "developer";
+  const canSeeManagement = isDeveloper || userRole === "admin" || userRole === "superadmin";
 
   // ── Load fleet data ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -294,7 +297,7 @@ export default function Home() {
             {isDeveloper && (
             <button
               onClick={() => setActiveSection("revenue")}
-              className="w-full text-left px-4 py-3 rounded-xl transition"
+              className="w-full text-left px-4 py-3 rounded-xl mb-2 transition"
               style={{
                 background: activeSection === "revenue" ? "var(--accent-glow)" : "transparent",
                 color: activeSection === "revenue" ? "var(--accent2)" : "var(--text)",
@@ -303,12 +306,27 @@ export default function Home() {
               💰 Revenue Intelligence
             </button>
             )}
+
+            {canSeeManagement && (
+            <button
+              onClick={() => setActiveSection("management")}
+              className="w-full text-left px-4 py-3 rounded-xl transition"
+              style={{
+                background: activeSection === "management" ? "var(--accent-glow)" : "transparent",
+                color: activeSection === "management" ? "var(--accent2)" : "var(--text)",
+              }}
+            >
+              📋 Management Report
+            </button>
+            )}
           </div>
         </aside>
 
         {/* Content Area */}
-        <div className="flex-1 px-8 py-6 pb-10 fade-in main-pad">
-          {activeSection === "fleet" || !isDeveloper ? (
+        <div className="flex-1 px-8 py-6 pb-10 fade-in main-pad" style={{ minWidth: 0, overflow: "hidden" }}>
+          {activeSection === "management" && canSeeManagement ? (
+            <ManagementReport allData={allData} />
+          ) : activeSection === "fleet" || !isDeveloper ? (
             <>
               <FilterBar
                 branches={branches}
