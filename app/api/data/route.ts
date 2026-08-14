@@ -1,7 +1,7 @@
 // app/api/data/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamo, TABLE_NAME } from "../../lib/dynamodb";
 import type { FleetRow } from "../../lib/types";
 
@@ -96,49 +96,71 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { filename } = await request.json();
-    if (!filename) {
-      return NextResponse.json({ error: "filename required" }, { status: 400 });
-    }
+    const body = await request.json();
+    const { filename, branch, month, year } = body as {
+      filename?: string;
+      branch?: string;
+      month?: string;
+      year?: string;
+    };
 
-    // Paginated scan to find all items with this _fileName
-    const toDelete: { pk: unknown; sk: unknown }[] = [];
-    let lastKey: Record<string, unknown> | undefined = undefined;
-    do {
-      const scan = await dynamo.send(
-        new ScanCommand({
-          TableName: TABLE_NAME,
-          FilterExpression: "#fn = :fn",
-          ExpressionAttributeNames: { "#fn": "_fileName" },
-          ExpressionAttributeValues: { ":fn": filename },
-          ProjectionExpression: "pk, sk",
-          ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
-        })
+    // ── Delete by branch + month + year ──────────────────────────────────
+    if (branch && month && year) {
+      const keys = await fetchKeysForBranchMonth(
+        branch.toLowerCase(),
+        month,
+        year
       );
-      if (scan.Items) toDelete.push(...scan.Items as { pk: unknown; sk: unknown }[]);
-      lastKey = scan.LastEvaluatedKey as Record<string, unknown> | undefined;
-    } while (lastKey);
-
-    if (toDelete.length === 0) {
-      return NextResponse.json({ success: true, deleted: 0 });
+      if (keys.length === 0) return NextResponse.json({ success: true, deleted: 0 });
+      for (const batch of chunk(keys, 25)) {
+        await dynamo.send(
+          new BatchWriteCommand({
+            RequestItems: {
+              [TABLE_NAME]: batch.map((key) => ({
+                DeleteRequest: { Key: { pk: key.pk, sk: key.sk } },
+              })),
+            },
+          })
+        );
+      }
+      return NextResponse.json({ success: true, deleted: keys.length });
     }
 
-    // Batch delete in groups of 25
-    const { BatchWriteCommand } = await import("@aws-sdk/lib-dynamodb");
-    const batches = chunk(toDelete, 25);
-    for (const batch of batches) {
-      await dynamo.send(
-        new BatchWriteCommand({
-          RequestItems: {
-            [TABLE_NAME]: batch.map((item) => ({
-              DeleteRequest: { Key: { pk: item.pk, sk: item.sk } },
-            })),
-          },
-        })
-      );
+    // ── Delete by filename ────────────────────────────────────────────────
+    if (filename) {
+      const toDelete: { pk: unknown; sk: unknown }[] = [];
+      let lastKey: Record<string, unknown> | undefined = undefined;
+      do {
+        const scan = await dynamo.send(
+          new ScanCommand({
+            TableName: TABLE_NAME,
+            FilterExpression: "#fn = :fn",
+            ExpressionAttributeNames: { "#fn": "_fileName" },
+            ExpressionAttributeValues: { ":fn": filename },
+            ProjectionExpression: "pk, sk",
+            ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
+          })
+        );
+        if (scan.Items) toDelete.push(...scan.Items as { pk: unknown; sk: unknown }[]);
+        lastKey = scan.LastEvaluatedKey as Record<string, unknown> | undefined;
+      } while (lastKey);
+
+      if (toDelete.length === 0) return NextResponse.json({ success: true, deleted: 0 });
+      for (const batch of chunk(toDelete, 25)) {
+        await dynamo.send(
+          new BatchWriteCommand({
+            RequestItems: {
+              [TABLE_NAME]: batch.map((item) => ({
+                DeleteRequest: { Key: { pk: item.pk, sk: item.sk } },
+              })),
+            },
+          })
+        );
+      }
+      return NextResponse.json({ success: true, deleted: toDelete.length });
     }
 
-    return NextResponse.json({ success: true, deleted: toDelete.length });
+    return NextResponse.json({ error: "branch + month + year, or filename required" }, { status: 400 });
   } catch (err) {
     console.error("Delete error:", err);
     return NextResponse.json(
@@ -152,4 +174,30 @@ function chunk<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
   return chunks;
+}
+
+async function fetchKeysForBranchMonth(
+  branch: string,
+  month: string,
+  year: string
+): Promise<{ pk: string; sk: string }[]> {
+  const keys: { pk: string; sk: string }[] = [];
+  let lastKey: Record<string, unknown> | undefined = undefined;
+  do {
+    const result = await dynamo.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+        ExpressionAttributeValues: {
+          ":pk": `BRANCH#${branch}`,
+          ":prefix": `${year}#${month}#`,
+        },
+        ProjectionExpression: "pk, sk",
+        ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
+      })
+    );
+    if (result.Items) keys.push(...(result.Items as { pk: string; sk: string }[]));
+    lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+  return keys;
 }

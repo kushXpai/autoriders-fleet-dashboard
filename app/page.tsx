@@ -17,6 +17,7 @@ import { num } from "./lib/dataUtils";
 import { getStoredUser } from "./lib/auth";
 import VehicleTrend from "./components/VehicleTrend";
 import ManagementReport from "./components/ManagementReport";
+import DeleteDataPanel from "./components/DeleteDataPanel";
 
 const MONTH_ORDER = [
   "April", "May", "June", "July", "August", "September",
@@ -185,6 +186,18 @@ export default function Home() {
     } finally {
       setAddingMonth(false);
     }
+  }, []);
+
+  const handleDeleted = useCallback(async () => {
+    const user = getStoredUser();
+    const role = user?.role || "branch";
+    const branch = user?.username || "";
+    const branches = (user?.branches ?? []).join(",");
+    const params = new URLSearchParams({ role, branch });
+    if (branches) params.set("branches", branches);
+    const res = await fetch(`/api/data?${params}`);
+    const { data } = await res.json();
+    if (data) { setAllData(data); resetFilters(); }
   }, []);
 
   // Upload revenue trip file
@@ -362,6 +375,9 @@ export default function Home() {
               <DecisionPanel data={filteredData} />
               <VehicleTrend data={filteredData} />
               <VehicleTable data={filteredData} />
+              {canUpload && (
+                <DeleteDataPanel allData={allData} onDeleted={handleDeleted} />
+              )}
             </>
           ) : (
             <RevenueIntelligence
