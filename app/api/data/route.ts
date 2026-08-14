@@ -45,13 +45,22 @@ async function queryBranch(branch: string): Promise<FleetRow[]> {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const branch = searchParams.get("branch");
-    const role = searchParams.get("role");
+    const branch = searchParams.get("branch") || "";
+    const role = searchParams.get("role") || "";
+    const branchesParam = searchParams.get("branches") || "";
 
-    let items: FleetRow[] =
-      branch && role !== "superadmin" && role !== "admin"
-        ? await queryBranch(branch)
-        : await scanAll();
+    let items: FleetRow[];
+    if (role === "superadmin" || role === "admin" || role === "developer") {
+      items = await scanAll();
+    } else if (role === "manager" && branchesParam) {
+      const branchList = branchesParam.split(",").filter(Boolean);
+      const results = await Promise.all(branchList.map((b) => queryBranch(b)));
+      items = results.flat();
+    } else if (branch) {
+      items = await queryBranch(branch);
+    } else {
+      items = await scanAll();
+    }
 
     // Normalize fields so UI filtering is consistent regardless of stored casing
     // Branch → lowercase ("Bangalore" / "BANGALORE" → "bangalore")

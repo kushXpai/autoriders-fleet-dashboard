@@ -53,16 +53,21 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState<"fleet" | "revenue" | "management">("fleet");
 
   // ── Role check ─────────────────────────────────────────────────────────────
-  const userRole = getStoredUser()?.role;
+  const storedUser = getStoredUser();
+  const userRole = storedUser?.role;
   const isDeveloper = userRole === "developer";
   const canSeeManagement = isDeveloper || userRole === "admin" || userRole === "superadmin";
+  const canUpload = isDeveloper || userRole === "superadmin";
 
   // ── Load fleet data ────────────────────────────────────────────────────────
   useEffect(() => {
     const user = getStoredUser();
     const role = user?.role || "branch";
     const branch = user?.username || "";
-    fetch(`/api/data?role=${role}&branch=${encodeURIComponent(branch)}`)
+    const branches = (user?.branches ?? []).join(",");
+    const params = new URLSearchParams({ role, branch });
+    if (branches) params.set("branches", branches);
+    fetch(`/api/data?${params}`)
       .then((r) => r.json())
       .then(({ data }) => {
         if (data && data.length > 0) setAllData(data);
@@ -159,6 +164,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append("files", file);
+      formData.append("overwrite", "true");
       const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
       if (!uploadRes.ok) {
         const err = await uploadRes.json();
@@ -168,7 +174,10 @@ export default function Home() {
       const user = getStoredUser();
       const role = user?.role || "branch";
       const branch = user?.username || "";
-      const dataRes = await fetch(`/api/data?role=${role}&branch=${encodeURIComponent(branch)}`);
+      const branches = (user?.branches ?? []).join(",");
+      const params = new URLSearchParams({ role, branch });
+      if (branches) params.set("branches", branches);
+      const dataRes = await fetch(`/api/data?${params}`);
       const { data } = await dataRes.json();
       if (data) { setAllData(data); resetFilters(); }
     } catch (err) {
@@ -211,7 +220,12 @@ export default function Home() {
   }
 
   if (!allData.length) {
-    return <FileUpload onDataLoaded={handleDataLoaded} />;
+    if (canUpload) return <FileUpload onDataLoaded={handleDataLoaded} />;
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center min-h-screen" style={{ background: "var(--bg)" }}>
+        <div className="text-sm font-medium" style={{ color: "var(--text3)" }}>No fleet data available. Contact your administrator.</div>
+      </div>
+    );
   }
 
   return (
@@ -246,8 +260,8 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Fleet upload — only shown in fleet section */}
-          {activeSection === "fleet" && (
+          {/* Fleet upload — superadmin and developer only */}
+          {activeSection === "fleet" && canUpload && (
             <label
               className="cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
               style={{

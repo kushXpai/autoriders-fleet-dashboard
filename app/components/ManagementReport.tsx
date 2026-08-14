@@ -6,12 +6,12 @@ import { num, cr } from "../lib/dataUtils";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-// Calendar year quarters: Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec
+// Financial year quarters: Q1=Apr-Jun, Q2=Jul-Sep, Q3=Oct-Dec, Q4=Jan-Mar
 const QUARTER_MONTHS: Record<string, string[]> = {
-  Q1: ["January", "February", "March"],
-  Q2: ["April", "May", "June"],
-  Q3: ["July", "August", "September"],
-  Q4: ["October", "November", "December"],
+  Q1: ["April", "May", "June"],
+  Q2: ["July", "August", "September"],
+  Q3: ["October", "November", "December"],
+  Q4: ["January", "February", "March"],
 };
 
 function monthToQuarter(month: string): string | null {
@@ -62,7 +62,9 @@ interface QMetrics {
   revenueKMS: number;
   nrkRatio: number;
   revPerKm: number;
+  revPerRevenueKm: number;
   costPerKm: number;
+  costPerRevenueKm: number;
   profitPerKm: number;
   fuelCost: number;
   repairCost: number;
@@ -102,7 +104,9 @@ function computeMetrics(data: FleetRow[]): QMetrics {
     revenueKMS,
     nrkRatio: totalKMS > 0 ? (nrk / totalKMS) * 100 : 0,
     revPerKm: totalKMS > 0 ? revenue / totalKMS : 0,
+    revPerRevenueKm: revenueKMS > 0 ? revenue / revenueKMS : 0,
     costPerKm: totalKMS > 0 ? cost / totalKMS : 0,
+    costPerRevenueKm: revenueKMS > 0 ? cost / revenueKMS : 0,
     profitPerKm: totalKMS > 0 ? profit / totalKMS : 0,
     fuelCost,
     repairCost,
@@ -545,9 +549,11 @@ export default function ManagementReport({ allData }: Props) {
                     { label: "Active Vehicle Rate", a: mA.activePct, b: mB.activePct, fmt: (v: number) => v.toFixed(1) + "%", ppDelta: true },
                     { label: "Avg Revenue / Active Vehicle", a: mA.avgRevPerVehicle, b: mB.avgRevPerVehicle, fmt: cr },
                     { label: "Total KMS Driven", a: mA.totalKMS, b: mB.totalKMS, fmt: (v: number) => Math.round(v).toLocaleString("en-IN") + " km" },
-                    { label: "Revenue per KM", a: mA.revPerKm, b: mB.revPerKm, fmt: (v: number) => "₹" + v.toFixed(2) + "/km" },
-                    { label: "Cost per KM", a: mA.costPerKm, b: mB.costPerKm, fmt: (v: number) => "₹" + v.toFixed(2) + "/km", invert: true },
-                    { label: "Non-Revenue KM Ratio", a: mA.nrkRatio, b: mB.nrkRatio, fmt: (v: number) => v.toFixed(1) + "%", ppDelta: true, invert: true },
+                    { label: "Revenue KMS", a: mA.revenueKMS, b: mB.revenueKMS, fmt: (v: number) => Math.round(v).toLocaleString("en-IN") + " km" },
+                    { label: "Revenue per Total KM", a: mA.revPerKm, b: mB.revPerKm, fmt: (v: number) => "₹" + v.toFixed(2) + "/km" },
+                    { label: "Revenue per Revenue KM", a: mA.revPerRevenueKm, b: mB.revPerRevenueKm, fmt: (v: number) => "₹" + v.toFixed(2) + "/km" },
+                    { label: "Cost per Total KM", a: mA.costPerKm, b: mB.costPerKm, fmt: (v: number) => "₹" + v.toFixed(2) + "/km", invert: true },
+                    { label: "Cost per Revenue KM", a: mA.costPerRevenueKm, b: mB.costPerRevenueKm, fmt: (v: number) => "₹" + v.toFixed(2) + "/km", invert: true },
                   ] as { label: string; a: number; b: number; fmt: (v: number) => string; invert?: boolean; ppDelta?: boolean }[]).map(
                     ({ label, a, b, fmt, invert, ppDelta }, i) => {
                       const d = ppDelta ? b - a : pctDelta(a, b);

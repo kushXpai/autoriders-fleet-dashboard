@@ -106,6 +106,7 @@ function ExpandedRows({ rows }: { rows: FleetRow[] }) {
             <td className="px-3.5 py-2 text-xs" style={{ color: "var(--text3)", paddingLeft: "2.5rem" }}>
               ↳ {r.Month} {r.Year}
             </td>
+            <td />
             <td className="px-3.5 py-2 text-xs" style={{ color: "var(--text3)" }}>{r.Branch || "—"}</td>
             <td className="px-3.5 py-2 text-xs" style={{ color: "var(--text2)" }}>{num(r["Total KMS"]).toLocaleString("en-IN")}</td>
             <td className="px-3.5 py-2 text-xs" style={{ color: "var(--text2)" }}>
