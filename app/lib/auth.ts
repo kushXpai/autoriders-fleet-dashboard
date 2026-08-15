@@ -19,9 +19,9 @@ const CREDENTIALS: Record<string, { password: string; role: User['role']; branch
   'vijay@autoriders.in': { password: 'Auto@123', role: 'admin' },
 
   // ── Manager accounts (multi-branch, no upload) ───────────────────────────
-  'hemant@autoriders.in':          { password: 'Auto@123', role: 'manager', branches: ['ahmedabad', 'bharuch', 'rajkot', 'surat', 'vadodara'] },
+  'hemant@autoriders.in':          { password: 'Auto@123', role: 'manager', branches: ['ahemdabad', 'bharuch', 'rajkot', 'surat', 'vadodara'] },
   'bangalorebm@autoriders.in':     { password: 'Auto@123', role: 'manager', branches: ['bangalore', 'exxon'] },
-  'rmnorth@autoriders.in':         { password: 'Auto@123', role: 'manager', branches: ['delhi', 'jaipur', 'lucknow', 'kolkatta'] },
+  'rmnorth@autoriders.in':         { password: 'Auto@123', role: 'manager', branches: ['delhi', 'jaipur', 'lucknow', 'kolkata'] },
   'hyderabadbm@autoriders.in':     { password: 'Auto@123', role: 'manager', branches: ['hyderabad', 'vijaywada', 'vizag'] },
   'mumbaiabm@autoriders.in':       { password: 'Auto@123', role: 'manager', branches: ['mumbai', 'novotel'] },
   'puneabm@autoriders.in':         { password: 'Auto@123', role: 'manager', branches: ['pune'] },
@@ -31,12 +31,12 @@ const CREDENTIALS: Record<string, { password: string; role: User['role']; branch
   'scb@autoriders.in':             { password: 'Auto@123', role: 'manager', branches: ['scb', 'niif'] },
 
   // ── Branch logins (single branch) ───────────────────────────────────────
-  ahmedabad:  { password: '123456789', role: 'branch' },
+  ahemdabad:  { password: '123456789', role: 'branch' },
   bangalore:  { password: '123456789', role: 'branch' },
   chennai:    { password: '123456789', role: 'branch' },
   delhi:      { password: '123456789', role: 'branch' },
   hyderabad:  { password: '123456789', role: 'branch' },
-  kolkatta:   { password: '123456789', role: 'branch' },
+  kolkata:   { password: '123456789', role: 'branch' },
   mumbai:     { password: '123456789', role: 'branch' },
   novotel:    { password: '123456789', role: 'branch' },
   pune:       { password: '123456789', role: 'branch' },
