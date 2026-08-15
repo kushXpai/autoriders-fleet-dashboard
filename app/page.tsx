@@ -57,7 +57,7 @@ export default function Home() {
   const storedUser = getStoredUser();
   const userRole = storedUser?.role;
   const isDeveloper = userRole === "developer";
-  const canSeeManagement = isDeveloper || userRole === "admin" || userRole === "superadmin";
+  const canSeeManagement = isDeveloper || userRole === "admin" || userRole === "superadmin" || userRole === "manager";
   const canUpload = isDeveloper || userRole === "superadmin";
 
   // ── Load fleet data ────────────────────────────────────────────────────────
