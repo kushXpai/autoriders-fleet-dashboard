@@ -2,68 +2,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface TripRow {
-    "Payment Status"?: string;
-    "Booking Ref No"?: string;
-    "Invoice No"?: string;
-    "Corporate Name"?: string;
-    "Source Branch"?: string;
-    "Service Branch"?: string;
-    "Customer Name"?: string;
-    "Group Code"?: string;
-    "Booker Name"?: string;
-    "Duty City"?: string;
-    "Car Type"?: string;
-    "Car Booked"?: string;
-    "Car Sent"?: string;
-    "Upgread"?: string;
-    "Usage Type"?: string;
-    "Modified Usage Type"?: string;
-    "Invoice Month"?: string;
-    "Driver Name"?: string;
-    "Vehicle No."?: string;
-    "Ownership Type"?: string; // SELF | SPOT | ALLOTTED
-    "Vendor Name"?: string;
-    "Revenue Kms"?: string;
-    "Total Kms"?: string;
-    "Extra Kms"?: string;
-    "Extra Hrs"?: string;
-    "Basic Rate"?: string;
-    "Total"?: string;
-    "Sub Total"?: string;
-    "Cgst"?: string;
-    "Sgst"?: string;
-    "Igst"?: string;
-    "Total Tax"?: string;
-    "Parking Amt"?: string;
-    "Toll"?: string;
-    "Driver Allowance"?: string;
-    "Night Allowance"?: string;
-    "App Duty"?: string;
-    // New fields for advanced analytics
-    "Opening Time"?: string;
-    "Opening Date"?: string;
-    "Closing Time"?: string;
-    "Closing Date"?: string;
-    "Actual Duty Time"?: string;
-    "Garage Op. Kms"?: string;
-    "Garage Clo. Kms"?: string;
-    "Dry Run Kms"?: string;
-    "Rate/Km Billed"?: string;
-    "Rate/Km Actual"?: string;
-    "Invoice Creation Date"?: string;
-    "Dispatch Date"?: string;
-    "Close Date/"?: string;
-    "CN No"?: string;
-    "CN Amt"?: string;
-    "Cost Centre"?: string;
-    "Reporting Date"?: string;
-    "Reporting Time"?: string;
-    [key: string]: string | undefined;
-}
+import type { RevenueRow } from "../lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -722,21 +661,21 @@ function CorporateDetailPopup({
     onClose,
 }: {
     corporate: string;
-    trips: TripRow[];
+    trips: RevenueRow[];
     onClose: () => void;
 }) {
-    const corpTrips = trips.filter((r) => r["Corporate Name"] === corporate);
-    const totalRevenue = corpTrips.reduce((s, r) => s + n(r["Total"]), 0);
-    const totalKms = corpTrips.reduce((s, r) => s + n(r["Total Kms"]), 0);
-    const successTrips = corpTrips.filter((r) => r["Payment Status"] === "Success").length;
+    const corpTrips = trips.filter((r) => r["CORPORATE NAME"] === corporate);
+    const totalRevenue = corpTrips.reduce((s, r) => s + n(r["TOTAL"]), 0);
+    const totalKms = corpTrips.reduce((s, r) => s + n(r["REVENUE KMS"]), 0);
+    const successTrips = corpTrips.filter((r) => r["PAYMENT STATUS"] === "Success").length;
 
     // Ownership breakdown
     const ownershipMap: Record<string, { trips: number; revenue: number }> = {};
     corpTrips.forEach((r) => {
-        const k = (r["Ownership Type"] || "UNKNOWN").toUpperCase();
+        const k = (r["OWNERSHIP TYPE"] || "UNKNOWN").toUpperCase();
         if (!ownershipMap[k]) ownershipMap[k] = { trips: 0, revenue: 0 };
         ownershipMap[k].trips++;
-        ownershipMap[k].revenue += n(r["Total"]);
+        ownershipMap[k].revenue += n(r["TOTAL"]);
     });
     const ownershipBreakdown = Object.entries(ownershipMap).map(([k, v]) => ({
         label: k,
@@ -747,8 +686,8 @@ function CorporateDetailPopup({
     // Monthly trend
     const monthlyMap: Record<string, number> = {};
     corpTrips.forEach((r) => {
-        const k = r["Invoice Month"] || "Unknown";
-        monthlyMap[k] = (monthlyMap[k] || 0) + n(r["Total"]);
+        const k = r["INVOICE MONTH"] || "Unknown";
+        monthlyMap[k] = (monthlyMap[k] || 0) + n(r["TOTAL"]);
     });
     const monthlyData = Object.entries(monthlyMap)
         .map(([label, value]) => ({ label, value }))
@@ -757,8 +696,8 @@ function CorporateDetailPopup({
     // Source branches for this corporate
     const branchMap: Record<string, number> = {};
     corpTrips.forEach((r) => {
-        const k = r["Source Branch"] || "Unknown";
-        branchMap[k] = (branchMap[k] || 0) + n(r["Total"]);
+        const k = r["SOURCE BRANCH"] || "Unknown";
+        branchMap[k] = (branchMap[k] || 0) + n(r["TOTAL"]);
     });
     const branchBreakdown = Object.entries(branchMap)
         .map(([label, value]) => ({ label, value }))
@@ -890,19 +829,19 @@ function LineChartTooltip({
     allData: { label: string; value: number }[];
     anchorX: number;
     anchorY: number;
-    trips: TripRow[];
+    trips: RevenueRow[];
     onClose: () => void;
 }) {
-    const monthTrips = trips.filter((r) => r["Invoice Month"] === point.label);
+    const monthTrips = trips.filter((r) => r["INVOICE MONTH"] === point.label);
     const prev = point.index > 0 ? allData[point.index - 1] : null;
     const delta = prev ? ((point.value - prev.value) / prev.value) * 100 : null;
 
     const ownershipMap: Record<string, { trips: number; revenue: number }> = {};
     monthTrips.forEach((r) => {
-        const k = (r["Ownership Type"] || "UNKNOWN").toUpperCase();
+        const k = (r["OWNERSHIP TYPE"] || "UNKNOWN").toUpperCase();
         if (!ownershipMap[k]) ownershipMap[k] = { trips: 0, revenue: 0 };
         ownershipMap[k].trips++;
-        ownershipMap[k].revenue += n(r["Total"]);
+        ownershipMap[k].revenue += n(r["TOTAL"]);
     });
 
     // Position: center of visible viewport
@@ -1037,7 +976,7 @@ function OwnershipProfitCard({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
-    trips: TripRow[];
+    trips: RevenueRow[];
     loading: boolean;
     onUpload: (file: File) => void;
     uploading: boolean;
@@ -1075,11 +1014,11 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
 
     // ── Filter options ──────────────────────────────────────────────────────────
 
-    const sourceBranches = useMemo(() => [...new Set(trips.map((r) => r["Source Branch"] || "").filter(Boolean))].sort(), [trips]);
-    const serviceBranches = useMemo(() => [...new Set(trips.map((r) => r["Service Branch"] || r["Duty City"] || "").filter(Boolean))].sort(), [trips]);
+    const sourceBranches = useMemo(() => [...new Set(trips.map((r) => r["SOURCE BRANCH"] || "").filter(Boolean))].sort(), [trips]);
+    const serviceBranches = useMemo(() => [...new Set(trips.map((r) => r["DUTY CITY"] || "").filter(Boolean))].sort(), [trips]);
     const allBranches = useMemo(() => [...new Set([...sourceBranches, ...serviceBranches])].sort(), [sourceBranches, serviceBranches]);
-    const invoiceMonths = useMemo(() => [...new Set(trips.map((r) => r["Invoice Month"] || "").filter(Boolean))].sort(), [trips]);
-    const corporates = useMemo(() => [...new Set(trips.map((r) => r["Corporate Name"] || "").filter(Boolean))].sort(), [trips]);
+    const invoiceMonths = useMemo(() => [...new Set(trips.map((r) => r["INVOICE MONTH"] || "").filter(Boolean))].sort(), [trips]);
+    const corporates = useMemo(() => [...new Set(trips.map((r) => r["CORPORATE NAME"] || "").filter(Boolean))].sort(), [trips]);
 
     // ── Filtered trips ──────────────────────────────────────────────────────────
 
@@ -1087,21 +1026,21 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
         return trips.filter((r) => {
             // Branch filter — check source OR service branch based on mode, or both if no mode
             if (filterBranch) {
-                const sourceBranch = r["Source Branch"] || "";
-                const serviceBranch = r["Service Branch"] || r["Duty City"] || "";
+                const sourceBranch = r["SOURCE BRANCH"] || "";
+                const serviceBranch = r["DUTY CITY"] || "";
                 if (filterBranchMode === "source" && sourceBranch !== filterBranch) return false;
                 if (filterBranchMode === "service" && serviceBranch !== filterBranch) return false;
             }
             // Date range filter (by Invoice Month)
             if (dateRange.from || dateRange.to) {
-                const m = r["Invoice Month"] || "";
+                const m = r["INVOICE MONTH"] || "";
                 if (dateRange.from && m < dateRange.from) return false;
                 if (dateRange.to && m > dateRange.to) return false;
             }
-            if (filterMonth && r["Invoice Month"] !== filterMonth) return false;
-            if (filterOwnership && (r["Ownership Type"] || "").toUpperCase() !== filterOwnership) return false;
-            if (filterCorporate && r["Corporate Name"] !== filterCorporate) return false;
-            if (filterPayment && r["Payment Status"] !== filterPayment) return false;
+            if (filterMonth && r["INVOICE MONTH"] !== filterMonth) return false;
+            if (filterOwnership && (r["OWNERSHIP TYPE"] || "").toUpperCase() !== filterOwnership) return false;
+            if (filterCorporate && r["CORPORATE NAME"] !== filterCorporate) return false;
+            if (filterPayment && r["PAYMENT STATUS"] !== filterPayment) return false;
             return true;
         });
     }, [trips, filterBranch, filterBranchMode, dateRange, filterMonth, filterOwnership, filterCorporate, filterPayment]);
@@ -1109,13 +1048,13 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     // ── KPIs ────────────────────────────────────────────────────────────────────
 
     const kpis = useMemo(() => {
-        const totalRevenue = filtered.reduce((s, r) => s + n(r["Total"]), 0);
+        const totalRevenue = filtered.reduce((s, r) => s + n(r["TOTAL"]), 0);
         const totalTrips = filtered.length;
-        const successTrips = filtered.filter((r) => r["Payment Status"] === "Success").length;
-        const totalKms = filtered.reduce((s, r) => s + n(r["Total Kms"]), 0);
-        const upgraded = filtered.filter((r) => (r["Upgread"] || "").toUpperCase() === "YES").length;
+        const successTrips = filtered.filter((r) => r["PAYMENT STATUS"] === "Success").length;
+        const totalKms = filtered.reduce((s, r) => s + n(r["REVENUE KMS"]), 0);
+        const upgraded = filtered.filter((r) => (r["UPGRADE"] || "").toUpperCase() === "YES").length;
         const avgPerTrip = totalTrips ? totalRevenue / totalTrips : 0;
-        const corporateCount = new Set(filtered.map((r) => r["Corporate Name"]).filter(Boolean)).size;
+        const corporateCount = new Set(filtered.map((r) => r["CORPORATE NAME"]).filter(Boolean)).size;
         return { totalRevenue, totalTrips, successTrips, totalKms, upgraded, avgPerTrip, corporateCount };
     }, [filtered]);
 
@@ -1124,10 +1063,10 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     const ownershipData = useMemo(() => {
         const map: Record<string, { trips: number; revenue: number }> = {};
         filtered.forEach((r) => {
-            const k = (r["Ownership Type"] || "UNKNOWN").toUpperCase();
+            const k = (r["OWNERSHIP TYPE"] || "UNKNOWN").toUpperCase();
             if (!map[k]) map[k] = { trips: 0, revenue: 0 };
             map[k].trips++;
-            map[k].revenue += n(r["Total"]);
+            map[k].revenue += n(r["TOTAL"]);
         });
         return Object.entries(map)
             .map(([k, v]) => ({ label: k, ...v, color: OWNERSHIP_COLORS[k] || "#94a3b8" }))
@@ -1139,9 +1078,9 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     const topCorporates = useMemo(() => {
         const map: Record<string, { revenue: number; trips: number }> = {};
         filtered.forEach((r) => {
-            const k = r["Group Code"] || r["Corporate Name"] || "Unknown";
+            const k = r["GROUP CODE"] || r["CORPORATE NAME"] || "Unknown";
             if (!map[k]) map[k] = { revenue: 0, trips: 0 };
-            map[k].revenue += n(r["Total"]);
+            map[k].revenue += n(r["TOTAL"]);
             map[k].trips++;
         });
         return Object.entries(map)
@@ -1155,8 +1094,8 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     const usageData = useMemo(() => {
         const map: Record<string, number> = {};
         filtered.forEach((r) => {
-            const k = r["Modified Usage Type"] || r["Usage Type"] || "Unknown";
-            map[k] = (map[k] || 0) + n(r["Total"]);
+            const k = r["MODIFIED USAGE TYPE"] || "Unknown";
+            map[k] = (map[k] || 0) + n(r["TOTAL"]);
         });
         return Object.entries(map)
             .map(([label, value]) => ({ label, value }))
@@ -1169,9 +1108,9 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     const carTypeData = useMemo(() => {
         const map: Record<string, { revenue: number; trips: number }> = {};
         filtered.forEach((r) => {
-            const k = r["Car Sent"] || r["Car Booked"] || r["Car Type"] || "Unknown";
+            const k = r["CAR SENT"] || r["CAR BOOKED"] || "Unknown";
             if (!map[k]) map[k] = { revenue: 0, trips: 0 };
-            map[k].revenue += n(r["Total"]);
+            map[k].revenue += n(r["TOTAL"]);
             map[k].trips++;
         });
         return Object.entries(map)
@@ -1185,9 +1124,9 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     const branchData = useMemo(() => {
         const map: Record<string, { revenue: number; trips: number }> = {};
         filtered.forEach((r) => {
-            const k = r["Source Branch"] || "Unknown";
+            const k = r["SOURCE BRANCH"] || "Unknown";
             if (!map[k]) map[k] = { revenue: 0, trips: 0 };
-            map[k].revenue += n(r["Total"]);
+            map[k].revenue += n(r["TOTAL"]);
             map[k].trips++;
         });
         return Object.entries(map)
@@ -1201,9 +1140,9 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     const serviceBranchData = useMemo(() => {
         const map: Record<string, { revenue: number; trips: number }> = {};
         filtered.forEach((r) => {
-            const k = r["Service Branch"] || r["Duty City"] || "Unknown";
+            const k = r["DUTY CITY"] || "Unknown";
             if (!map[k]) map[k] = { revenue: 0, trips: 0 };
-            map[k].revenue += n(r["Total"]);
+            map[k].revenue += n(r["TOTAL"]);
             map[k].trips++;
         });
         return Object.entries(map)
@@ -1217,10 +1156,10 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     const monthlyTrend = useMemo(() => {
         const map: Record<string, { self: number; spot: number; allotted: number; total: number }> = {};
         filtered.forEach((r) => {
-            const k = r["Invoice Month"] || "Unknown";
+            const k = r["INVOICE MONTH"] || "Unknown";
             if (!map[k]) map[k] = { self: 0, spot: 0, allotted: 0, total: 0 };
-            const ownership = (r["Ownership Type"] || "").toUpperCase();
-            const val = n(r["Total"]);
+            const ownership = (r["OWNERSHIP TYPE"] || "").toUpperCase();
+            const val = n(r["TOTAL"]);
             map[k].total += val;
             if (ownership === "SELF") map[k].self += val;
             else if (ownership === "SPOT") map[k].spot += val;
@@ -1234,11 +1173,11 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     // ── Upgrade analysis ────────────────────────────────────────────────────────
 
     const upgradeData = useMemo(() => {
-        const yes = filtered.filter((r) => (r["Upgread"] || "").toUpperCase() === "YES");
-        const no = filtered.filter((r) => (r["Upgread"] || "").toUpperCase() !== "YES");
+        const yes = filtered.filter((r) => (r["UPGRADE"] || "").toUpperCase() === "YES");
+        const no = filtered.filter((r) => (r["UPGRADE"] || "").toUpperCase() !== "YES");
         return [
-            { label: "Upgraded", value: yes.length, revenue: yes.reduce((s, r) => s + n(r["Total"]), 0), color: "#10b981" },
-            { label: "No Upgrade", value: no.length, revenue: no.reduce((s, r) => s + n(r["Total"]), 0), color: "#94a3b8" },
+            { label: "Upgraded", value: yes.length, revenue: yes.reduce((s, r) => s + n(r["TOTAL"]), 0), color: "#10b981" },
+            { label: "No Upgrade", value: no.length, revenue: no.reduce((s, r) => s + n(r["TOTAL"]), 0), color: "#94a3b8" },
         ];
     }, [filtered]);
 
@@ -1251,12 +1190,12 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
         );
         let hasData = false;
         filtered.forEach((r) => {
-            const hour = parseHour(r["Opening Time"] || r["Reporting Time"]);
-            const date = parseDMY(r["Opening Date"] || r["Reporting Date"]);
+            const hour = parseHour(r["OPENING TIME"] || r["REPORTING TIME"]);
+            const date = parseDMY(r["OPENING DATE"] || r["REPORTING DATE"]);
             if (hour === null || !date) return;
             const dow = date.getDay(); // 0=Sun
             grid[hour][dow].trips++;
-            grid[hour][dow].revenue += n(r["Total"]);
+            grid[hour][dow].revenue += n(r["TOTAL"]);
             hasData = true;
         });
         return hasData ? grid : null;
@@ -1264,24 +1203,21 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
 
     // ── [2] VEHICLE UTILISATION ────────────────────────────────────────────────────
     const vehicleUtilData = useMemo(() => {
-        const map: Record<string, { trips: number; revenue: number; dutyHrs: number; garageKms: number; revenueKms: number }> = {};
+        const map: Record<string, { trips: number; revenue: number; dutyHrs: number; revenueKms: number; dryRunKms: number }> = {};
         filtered.forEach((r) => {
-            const v = r["Vehicle No."] || "Unknown";
-            if (!map[v]) map[v] = { trips: 0, revenue: 0, dutyHrs: 0, garageKms: 0, revenueKms: 0 };
+            const v = r["VEHICLE NUMBER"] || "Unknown";
+            if (!map[v]) map[v] = { trips: 0, revenue: 0, dutyHrs: 0, revenueKms: 0, dryRunKms: 0 };
             map[v].trips++;
-            map[v].revenue += n(r["Total"]);
-            map[v].dutyHrs += parseDutyHours(r["Actual Duty Time"]);
-            const gOp = n(r["Garage Op. Kms"]);
-            const gCl = n(r["Garage Clo. Kms"]);
-            if (gCl > gOp) map[v].garageKms += (gCl - gOp);
-            map[v].revenueKms += n(r["Total Kms"]);
+            map[v].revenue += n(r["TOTAL"]);
+            map[v].dutyHrs += parseDutyHours(r["ACTUAL DUTY TIME"]);
+            map[v].revenueKms += n(r["REVENUE KMS"]);
+            map[v].dryRunKms += n(r["DRY RUN KMS"]);
         });
         return Object.entries(map)
             .map(([vehicle, v]) => ({
                 vehicle,
                 ...v,
                 revenuePerHr: v.dutyHrs > 0 ? v.revenue / v.dutyHrs : 0,
-                dryRunKms: Math.max(0, v.garageKms - v.revenueKms),
             }))
             .filter((v) => v.trips > 0)
             .sort((a, b) => b.revenue - a.revenue)
@@ -1292,14 +1228,14 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     const rateRealisationData = useMemo(() => {
         const corpMap: Record<string, { billedKmRate: number[]; actualKmRate: number[]; revenue: number; trips: number }> = {};
         filtered.forEach((r) => {
-            const corp = r["Corporate Name"] || "Unknown";
-            const billed = n(r["Rate/Km Billed"]);
-            const actual = n(r["Rate/Km Actual"]);
+            const corp = r["CORPORATE NAME"] || "Unknown";
+            const billed = n(r["RATE PER KM BILLED"]);
+            const actual = n(r["RATE PER KM ACTUAL"]);
             if (billed <= 0) return;
             if (!corpMap[corp]) corpMap[corp] = { billedKmRate: [], actualKmRate: [], revenue: 0, trips: 0 };
             corpMap[corp].billedKmRate.push(billed);
             if (actual > 0) corpMap[corp].actualKmRate.push(actual);
-            corpMap[corp].revenue += n(r["Total"]);
+            corpMap[corp].revenue += n(r["TOTAL"]);
             corpMap[corp].trips++;
         });
         return Object.entries(corpMap)
@@ -1319,16 +1255,16 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
         const map: Record<string, { revenue: number; trips: number; corporates: Set<string>; ownership: Record<string, number> }> = {};
         filtered.forEach((r) => {
             // Use Group Code if present, otherwise derive from Corporate Name prefix or use corporate name
-            const rawGroup = r["Group Code"] || "";
+            const rawGroup = r["GROUP CODE"] || "";
             // Normalise: strip digits/spaces, take first word
             const group = rawGroup.trim().toUpperCase() || "UNGROUPED";
-            const corp = r["Corporate Name"] || "Unknown";
+            const corp = r["CORPORATE NAME"] || "Unknown";
             if (!map[group]) map[group] = { revenue: 0, trips: 0, corporates: new Set(), ownership: {} };
-            map[group].revenue += n(r["Total"]);
+            map[group].revenue += n(r["TOTAL"]);
             map[group].trips++;
             map[group].corporates.add(corp);
-            const ow = (r["Ownership Type"] || "OTHER").toUpperCase();
-            map[group].ownership[ow] = (map[group].ownership[ow] || 0) + n(r["Total"]);
+            const ow = (r["OWNERSHIP TYPE"] || "OTHER").toUpperCase();
+            map[group].ownership[ow] = (map[group].ownership[ow] || 0) + n(r["TOTAL"]);
         });
         return Object.entries(map)
             .map(([group, v]) => ({
@@ -1349,15 +1285,15 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
         const corpLag: Record<string, { lags: number[]; revenue: number }> = {};
         let totalLag = 0, lagCount = 0;
         filtered.forEach((r) => {
-            const openDate = parseDMY(r["Opening Date"] || r["Reporting Date"]);
-            const invDate = parseDMY(r["Invoice Creation Date"]);
+            const openDate = parseDMY(r["OPENING DATE"] || r["REPORTING DATE"]);
+            const invDate = parseDMY(r["INVOICE DATE"]);
             if (!openDate || !invDate) return;
             const diffDays = Math.round((invDate.getTime() - openDate.getTime()) / (1000 * 60 * 60 * 24));
             if (diffDays < 0 || diffDays > 365) return; // skip outliers
-            const corp = r["Corporate Name"] || "Unknown";
+            const corp = r["CORPORATE NAME"] || "Unknown";
             if (!corpLag[corp]) corpLag[corp] = { lags: [], revenue: 0 };
             corpLag[corp].lags.push(diffDays);
-            corpLag[corp].revenue += n(r["Total"]);
+            corpLag[corp].revenue += n(r["TOTAL"]);
             totalLag += diffDays;
             lagCount++;
         });
@@ -1376,6 +1312,287 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
         return { avgOverall, corpList, lagCount };
     }, [filtered]);
 
+    // ── Outstanding invoices (NoAction) by corporate ────────────────────────────
+    const outstandingData = useMemo(() => {
+        const map: Record<string, { trips: number; amount: number }> = {};
+        filtered.forEach(r => {
+            if ((r["PAYMENT STATUS"] || "") !== "NoAction") return;
+            const corp = r["CORPORATE NAME"] || "Unknown";
+            if (!map[corp]) map[corp] = { trips: 0, amount: 0 };
+            map[corp].trips++;
+            map[corp].amount += n(r["TOTAL"]);
+        });
+        return Object.entries(map)
+            .map(([label, v]) => ({ label, value: v.amount, sub: `${v.trips} unpaid` }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+    }, [filtered]);
+
+    // ── Monthly success rate trend ───────────────────────────────────────────────
+    const successRateTrend = useMemo(() => {
+        const map: Record<string, { success: number; total: number }> = {};
+        filtered.forEach(r => {
+            const k = r["INVOICE MONTH"] || "Unknown";
+            if (!map[k]) map[k] = { success: 0, total: 0 };
+            map[k].total++;
+            if (r["PAYMENT STATUS"] === "Success") map[k].success++;
+        });
+        return Object.entries(map)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([label, v]) => ({ label, value: v.total ? Math.round((v.success / v.total) * 100) : 0 }));
+    }, [filtered]);
+
+    // ── Credit Notes (CN) by corporate ──────────────────────────────────────────
+    const creditNoteData = useMemo(() => {
+        const map: Record<string, { count: number; amount: number }> = {};
+        filtered.forEach(r => {
+            if (!r["CN NUMBER"]) return;
+            const corp = r["CORPORATE NAME"] || "Unknown";
+            if (!map[corp]) map[corp] = { count: 0, amount: 0 };
+            map[corp].count++;
+            map[corp].amount += n(r["CN AMOUNT"]);
+        });
+        return Object.entries(map)
+            .map(([label, v]) => ({ label, value: v.amount, sub: `${v.count} CNs` }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+    }, [filtered]);
+
+    // ── Surcharge breakdown ──────────────────────────────────────────────────────
+    const surchargeData = useMemo(() => {
+        let toll = 0, parking = 0, night = 0, driver = 0, sundries = 0;
+        filtered.forEach(r => {
+            toll     += n(r["TOLL"]);
+            parking  += n(r["PARKING AMOUNT"]);
+            night    += n(r["NIGHT ALLOWANCE"]);
+            driver   += n(r["DRIVER ALLOWANCE"]);
+            sundries += n(r["SUNDRIES"]);
+        });
+        return [
+            { label: "Toll", value: toll },
+            { label: "Parking", value: parking },
+            { label: "Night Allowance", value: night },
+            { label: "Driver Allowance", value: driver },
+            { label: "Sundries", value: sundries },
+        ].filter(x => x.value > 0).sort((a, b) => b.value - a.value);
+    }, [filtered]);
+
+    // ── Extra KMS / HRS overrun by corporate ────────────────────────────────────
+    const extraOverrunData = useMemo(() => {
+        const map: Record<string, { extraKmsAmt: number; extraHrsAmt: number; trips: number }> = {};
+        filtered.forEach(r => {
+            const extraKmsAmt = n(r["EXTRA KMS AMOUNT"]);
+            const extraHrsAmt = n(r["EXTRA HRS AMOUNT"]);
+            if (extraKmsAmt + extraHrsAmt === 0) return;
+            const corp = r["CORPORATE NAME"] || "Unknown";
+            if (!map[corp]) map[corp] = { extraKmsAmt: 0, extraHrsAmt: 0, trips: 0 };
+            map[corp].extraKmsAmt += extraKmsAmt;
+            map[corp].extraHrsAmt += extraHrsAmt;
+            map[corp].trips++;
+        });
+        return Object.entries(map)
+            .map(([label, v]) => ({ label, value: v.extraKmsAmt + v.extraHrsAmt, sub: `${v.trips} trips overran` }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+    }, [filtered]);
+
+    // ── Tax collected by month ───────────────────────────────────────────────────
+    const taxByMonth = useMemo(() => {
+        const map: Record<string, { cgst: number; sgst: number; igst: number }> = {};
+        filtered.forEach(r => {
+            const k = r["INVOICE MONTH"] || "Unknown";
+            if (!map[k]) map[k] = { cgst: 0, sgst: 0, igst: 0 };
+            map[k].cgst += n(r["CGST"]);
+            map[k].sgst += n(r["SGST"]);
+            map[k].igst += n(r["IGST"]);
+        });
+        return Object.entries(map)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([label, v]) => ({ label, value: v.cgst + v.sgst + v.igst }));
+    }, [filtered]);
+
+    // ── App Duty split ───────────────────────────────────────────────────────────
+    const appDutyData = useMemo(() => {
+        let yesTrips = 0, yesRev = 0, noTrips = 0, noRev = 0;
+        filtered.forEach(r => {
+            const rev = n(r["TOTAL"]);
+            if ((r["APP DUTY"] || "").toUpperCase() === "YES") { yesTrips++; yesRev += rev; }
+            else { noTrips++; noRev += rev; }
+        });
+        return [
+            { label: "App Duty", value: yesRev, trips: yesTrips, color: "#3b82f6" },
+            { label: "Non-App Duty", value: noRev, trips: noTrips, color: "#94a3b8" },
+        ];
+    }, [filtered]);
+
+    // ── Upgrade rate by corporate ────────────────────────────────────────────────
+    const upgradeRateByCorp = useMemo(() => {
+        const map: Record<string, { upgraded: number; total: number }> = {};
+        filtered.forEach(r => {
+            const corp = r["CORPORATE NAME"] || "Unknown";
+            if (!map[corp]) map[corp] = { upgraded: 0, total: 0 };
+            map[corp].total++;
+            if ((r["UPGRADE"] || "").toUpperCase() === "YES") map[corp].upgraded++;
+        });
+        return Object.entries(map)
+            .filter(([, v]) => v.total >= 5)
+            .map(([label, v]) => ({ label, value: Math.round((v.upgraded / v.total) * 100), sub: `${v.upgraded}/${v.total}` }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+    }, [filtered]);
+
+    // ── Upgrade rate by car type ─────────────────────────────────────────────────
+    const upgradeRateByCarType = useMemo(() => {
+        const map: Record<string, { upgraded: number; total: number }> = {};
+        filtered.forEach(r => {
+            const car = r["CAR BOOKED"] || "Unknown";
+            if (!map[car]) map[car] = { upgraded: 0, total: 0 };
+            map[car].total++;
+            if ((r["UPGRADE"] || "").toUpperCase() === "YES") map[car].upgraded++;
+        });
+        return Object.entries(map)
+            .filter(([, v]) => v.total >= 3)
+            .map(([label, v]) => ({ label, value: Math.round((v.upgraded / v.total) * 100), sub: `${v.upgraded}/${v.total}` }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 8);
+    }, [filtered]);
+
+    // ── Revenue KMS vs Dry Run KMS efficiency by vehicle ────────────────────────
+    const kmsEfficiencyData = useMemo(() => {
+        const map: Record<string, { revKms: number; dryKms: number; trips: number }> = {};
+        filtered.forEach(r => {
+            const v = r["VEHICLE NUMBER"] || "Unknown";
+            if (!map[v]) map[v] = { revKms: 0, dryKms: 0, trips: 0 };
+            map[v].revKms += n(r["REVENUE KMS"]);
+            map[v].dryKms += n(r["DRY RUN KMS"]);
+            map[v].trips++;
+        });
+        return Object.entries(map)
+            .filter(([, v]) => v.revKms + v.dryKms > 0)
+            .map(([vehicle, v]) => {
+                const total = v.revKms + v.dryKms;
+                const effPct = total > 0 ? Math.round((v.revKms / total) * 100) : 0;
+                return { vehicle, revKms: v.revKms, dryKms: v.dryKms, trips: v.trips, effPct };
+            })
+            .sort((a, b) => b.effPct - a.effPct)
+            .slice(0, 15);
+    }, [filtered]);
+
+    // ── Vendor-wise breakdown ────────────────────────────────────────────────────
+    const vendorData = useMemo(() => {
+        const map: Record<string, { revenue: number; trips: number }> = {};
+        filtered.forEach(r => {
+            const ownership = (r["OWNERSHIP TYPE"] || "").toUpperCase();
+            if (ownership === "SELF") return;
+            const vendor = r["VENDOR NAME"] || "Unknown";
+            if (!map[vendor]) map[vendor] = { revenue: 0, trips: 0 };
+            map[vendor].revenue += n(r["TOTAL"]);
+            map[vendor].trips++;
+        });
+        return Object.entries(map)
+            .map(([label, v]) => ({ label, value: v.revenue, sub: `${v.trips} trips` }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+    }, [filtered]);
+
+    // ── Duty duration buckets ────────────────────────────────────────────────────
+    const durationBuckets = useMemo(() => {
+        const buckets: Record<string, number> = { "<4h": 0, "4–6h": 0, "6–8h": 0, "8–10h": 0, "10–12h": 0, "12h+": 0 };
+        filtered.forEach(r => {
+            const hrs = parseDutyHours(r["ACTUAL DUTY TIME"]);
+            if (hrs <= 0) return;
+            if (hrs < 4) buckets["<4h"]++;
+            else if (hrs < 6) buckets["4–6h"]++;
+            else if (hrs < 8) buckets["6–8h"]++;
+            else if (hrs < 10) buckets["8–10h"]++;
+            else if (hrs < 12) buckets["10–12h"]++;
+            else buckets["12h+"]++;
+        });
+        return Object.entries(buckets)
+            .map(([label, value]) => ({ label, value }))
+            .filter(x => x.value > 0);
+    }, [filtered]);
+
+    // ── Night trips (closing after 22:00) ───────────────────────────────────────
+    const nightTripData = useMemo(() => {
+        const byBranch: Record<string, { night: number; total: number }> = {};
+        filtered.forEach(r => {
+            const branch = r["SOURCE BRANCH"] || "Unknown";
+            if (!byBranch[branch]) byBranch[branch] = { night: 0, total: 0 };
+            byBranch[branch].total++;
+            const closeHour = parseHour(r["CLOSING TIME"]);
+            if (closeHour !== null && (closeHour >= 22 || closeHour < 4)) {
+                byBranch[branch].night++;
+            }
+        });
+        return Object.entries(byBranch)
+            .filter(([, v]) => v.night > 0)
+            .map(([label, v]) => ({ label, value: v.night, sub: `${v.total ? Math.round((v.night / v.total) * 100) : 0}% of trips` }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+    }, [filtered]);
+
+    // ── Top drivers ──────────────────────────────────────────────────────────────
+    const topDriverData = useMemo(() => {
+        const map: Record<string, { trips: number; revenue: number }> = {};
+        filtered.forEach(r => {
+            const d = r["DRIVER NAME"] || "Unknown";
+            if (!map[d]) map[d] = { trips: 0, revenue: 0 };
+            map[d].trips++;
+            map[d].revenue += n(r["TOTAL"]);
+        });
+        return Object.entries(map)
+            .map(([label, v]) => ({ label, value: v.revenue, sub: `${v.trips} trips` }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+    }, [filtered]);
+
+    // ── Corporate payment health ─────────────────────────────────────────────────
+    const corpPaymentHealth = useMemo(() => {
+        const map: Record<string, { success: number; total: number; totalAmt: number; outstandingAmt: number; cnAmt: number }> = {};
+        filtered.forEach(r => {
+            const corp = r["CORPORATE NAME"] || "Unknown";
+            if (!map[corp]) map[corp] = { success: 0, total: 0, totalAmt: 0, outstandingAmt: 0, cnAmt: 0 };
+            map[corp].total++;
+            map[corp].totalAmt += n(r["TOTAL"]);
+            if (r["PAYMENT STATUS"] === "Success") map[corp].success++;
+            else map[corp].outstandingAmt += n(r["TOTAL"]);
+            if (r["CN NUMBER"]) map[corp].cnAmt += n(r["CN AMOUNT"]);
+        });
+        return Object.entries(map)
+            .filter(([, v]) => v.total >= 3)
+            .map(([corp, v]) => ({
+                corp,
+                successRate: Math.round((v.success / v.total) * 100),
+                outstanding: v.outstandingAmt,
+                cnAmt: v.cnAmt,
+                totalAmt: v.totalAmt,
+                trips: v.total,
+            }))
+            .sort((a, b) => a.successRate - b.successRate)
+            .slice(0, 12);
+    }, [filtered]);
+
+    // ── Corporate car type preference ────────────────────────────────────────────
+    const corpCarPreference = useMemo(() => {
+        const map: Record<string, Record<string, number>> = {};
+        filtered.forEach(r => {
+            const corp = r["CORPORATE NAME"] || "Unknown";
+            const car = r["CAR SENT"] || r["CAR BOOKED"] || "Unknown";
+            if (!map[corp]) map[corp] = {};
+            map[corp][car] = (map[corp][car] || 0) + 1;
+        });
+        return Object.entries(map)
+            .map(([corp, cars]) => {
+                const topCar = Object.entries(cars).sort((a, b) => b[1] - a[1])[0];
+                const total = Object.values(cars).reduce((s, v) => s + v, 0);
+                return { corp, topCar: topCar?.[0] || "—", topCarPct: total ? Math.round(((topCar?.[1] || 0) / total) * 100) : 0, total };
+            })
+            .filter(x => x.total >= 5)
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 12);
+    }, [filtered]);
+
     // ── Trip table ──────────────────────────────────────────────────────────────
 
     const searchedTrips = useMemo(() => {
@@ -1383,11 +1600,11 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
         const q = tableSearch.toLowerCase();
         return filtered.filter(
             (r) =>
-                (r["Corporate Name"] || "").toLowerCase().includes(q) ||
-                (r["Vehicle No."] || "").toLowerCase().includes(q) ||
-                (r["Booking Ref No"] || "").toLowerCase().includes(q) ||
-                (r["Customer Name"] || "").toLowerCase().includes(q) ||
-                (r["Driver Name"] || "").toLowerCase().includes(q)
+                (r["CORPORATE NAME"] || "").toLowerCase().includes(q) ||
+                (r["VEHICLE NUMBER"] || "").toLowerCase().includes(q) ||
+                (r["BOOKING REFERENCE NUMBER"] || "").toLowerCase().includes(q) ||
+                (r["CUSTOMER NAME"] || "").toLowerCase().includes(q) ||
+                (r["DRIVER NAME"] || "").toLowerCase().includes(q)
         );
     }, [filtered, tableSearch]);
 
@@ -1583,7 +1800,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                 {!loggedInBranch ? (
                     <>
                         <FilterPill label="Source Branch" options={sourceBranches} value={filterBranchMode === "source" ? filterBranch : ""} onChange={(v) => { setFilterBranchMode("source"); setFilterBranch(v); }} />
-                        <FilterPill label="Service Branch" options={serviceBranches} value={filterBranchMode === "service" ? filterBranch : ""} onChange={(v) => { setFilterBranchMode("service"); setFilterBranch(v); }} />
+                        <FilterPill label="Duty City" options={serviceBranches} value={filterBranchMode === "service" ? filterBranch : ""} onChange={(v) => { setFilterBranchMode("service"); setFilterBranch(v); }} />
                     </>
                 ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1753,7 +1970,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                 </div>
                 <div style={card}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16 }}>
-                        Revenue by Service Branch
+                        Revenue by Duty City
                     </div>
                     <SvgBarChart data={serviceBranchData} height={180} colorFn={(i) => ["#f97316", "#f59e0b", "#10b981", "#14b8a6", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899"][i % 8]} />
                 </div>
@@ -1810,6 +2027,248 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                 </div>
             </div>
 
+            {/* ── Payment & Collections ── */}
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>💳 Payment &amp; Collections</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Outstanding Invoices
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>NoAction by corporate</span>
+                    </div>
+                    {outstandingData.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No outstanding invoices</div>
+                        : <BarList items={outstandingData} valueFormatter={fmtShort} colorFn={() => "#ef4444"} />
+                    }
+                </div>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Payment Success Rate
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>% paid · by month</span>
+                    </div>
+                    {successRateTrend.length < 2
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>Need at least 2 months</div>
+                        : <LineChart data={successRateTrend} height={180} />
+                    }
+                </div>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Credit Notes Issued
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>CN amount by corporate</span>
+                    </div>
+                    {creditNoteData.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No credit notes in this period</div>
+                        : <BarList items={creditNoteData} valueFormatter={fmtShort} colorFn={() => "#f59e0b"} />
+                    }
+                </div>
+            </div>
+
+            {/* ── Charges & Tax Breakdown ── */}
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>📋 Charges &amp; Tax Breakdown</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Surcharge Components
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>Toll · Parking · Night · Driver · Sundries</span>
+                    </div>
+                    {surchargeData.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No surcharges in this period</div>
+                        : <SvgBarChart data={surchargeData} height={180} />
+                    }
+                </div>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Package Overruns by Corporate
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>Extra km + hr charges</span>
+                    </div>
+                    {extraOverrunData.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No overruns in this period</div>
+                        : <BarList items={extraOverrunData} valueFormatter={fmtShort} colorFn={() => "#8b5cf6"} />
+                    }
+                </div>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Total Tax Collected
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>CGST + SGST + IGST · by month</span>
+                    </div>
+                    {taxByMonth.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No tax data</div>
+                        : <SvgBarChart data={taxByMonth} height={180} colorFn={() => "#6366f1"} />
+                    }
+                </div>
+            </div>
+
+            {/* ── App Duty & Upgrades ── */}
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>⚡ App Duty &amp; Upgrades</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
+                        App Duty Split
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>Revenue &amp; trips</span>
+                    </div>
+                    {appDutyData.map(d => {
+                        const total = appDutyData.reduce((s, x) => s + x.value, 0);
+                        return (
+                            <div key={d.label} style={{ marginBottom: 16 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: d.color }}>{d.label}</span>
+                                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{fmtShort(d.value)}</span>
+                                </div>
+                                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>{d.trips} trips</div>
+                                <MiniBar pct={total > 0 ? (d.value / total) * 100 : 0} color={d.color} />
+                            </div>
+                        );
+                    })}
+                </div>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Upgrade Rate by Corporate
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>% upgraded (min 5 trips)</span>
+                    </div>
+                    {upgradeRateByCorp.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>Not enough data</div>
+                        : <SvgBarChart data={upgradeRateByCorp} height={180} colorFn={() => "#10b981"} />
+                    }
+                </div>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Upgrade Rate by Car Type
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>% upgraded per car</span>
+                    </div>
+                    {upgradeRateByCarType.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>Not enough data</div>
+                        : <SvgBarChart data={upgradeRateByCarType} height={180} colorFn={() => "#f59e0b"} />
+                    }
+                </div>
+            </div>
+
+            {/* ── Vehicle & Driver Intelligence ── */}
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>🚗 Vehicle &amp; Driver Intelligence</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+                        Revenue vs Dry Run KMS
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>Higher % = more efficient</span>
+                    </div>
+                    {kmsEfficiencyData.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)" }}>No KMS data</div>
+                        : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                {kmsEfficiencyData.slice(0, 10).map((v, i) => (
+                                    <div key={v.vehicle} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <span style={{ fontSize: 11, color: "var(--text3)", minWidth: 20 }}>{i + 1}</span>
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.vehicle}</span>
+                                        <span style={{ fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>{v.revKms.toFixed(0)} rev / {v.dryKms.toFixed(0)} dry</span>
+                                        <span style={{ fontSize: 12, fontWeight: 700, minWidth: 36, textAlign: "right", color: v.effPct >= 80 ? "#10b981" : v.effPct >= 60 ? "#f59e0b" : "#ef4444" }}>{v.effPct}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    }
+                </div>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+                        Vendor Revenue (SPOT + ALLOTTED)
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>Excludes SELF fleet</span>
+                    </div>
+                    {vendorData.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)" }}>No vendor data</div>
+                        : <BarList items={vendorData} valueFormatter={fmtShort} />
+                    }
+                </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Duty Duration Buckets
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>Trips by hours</span>
+                    </div>
+                    {durationBuckets.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No duty time data</div>
+                        : <SvgBarChart data={durationBuckets} height={180} colorFn={(i) => ["#3b82f6","#60a5fa","#93c5fd","#f59e0b","#ef4444","#8b5cf6"][i % 6]} />
+                    }
+                </div>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Night Trips (after 10 PM)
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>Closing after 22:00 or before 04:00</span>
+                    </div>
+                    {nightTripData.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No night trips</div>
+                        : <BarList items={nightTripData} valueFormatter={(v) => v.toString()} colorFn={() => "#6366f1"} />
+                    }
+                </div>
+                <div style={card}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                        Top Drivers by Revenue
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>Revenue contribution</span>
+                    </div>
+                    {topDriverData.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No driver data</div>
+                        : <BarList items={topDriverData} valueFormatter={fmtShort} />
+                    }
+                </div>
+            </div>
+
+            {/* ── Corporate Intelligence ── */}
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>🏢 Corporate Intelligence</div>
+            <div style={{ ...card, padding: 0, overflow: "hidden", marginBottom: 14 }}>
+                <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>Corporate Payment Health</div>
+                    <span style={{ fontSize: 11, color: "var(--text3)" }}>Success rate · Outstanding · Credit notes (min 3 trips)</span>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                        <thead>
+                            <tr style={{ background: "#f8fafc" }}>
+                                {["Corporate", "Trips", "Success Rate", "Outstanding", "CN Amount"].map(h => (
+                                    <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {corpPaymentHealth.length === 0 ? (
+                                <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "var(--text3)", fontSize: 12 }}>No data</td></tr>
+                            ) : corpPaymentHealth.map((row, i) => (
+                                <tr key={row.corp} style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                    <td style={{ padding: "8px 14px", fontWeight: 600, color: "var(--text)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.corp}</td>
+                                    <td style={{ padding: "8px 14px", color: "var(--text3)" }}>{row.trips}</td>
+                                    <td style={{ padding: "8px 14px" }}>
+                                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: row.successRate >= 80 ? "rgba(16,185,129,0.1)" : row.successRate >= 60 ? "rgba(245,158,11,0.1)" : "rgba(239,68,68,0.1)", color: row.successRate >= 80 ? "#10b981" : row.successRate >= 60 ? "#f59e0b" : "#ef4444" }}>
+                                            {row.successRate}%
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: "8px 14px", fontWeight: 600, color: row.outstanding > 0 ? "#ef4444" : "var(--text3)" }}>{row.outstanding > 0 ? fmtShort(row.outstanding) : "—"}</td>
+                                    <td style={{ padding: "8px 14px", fontWeight: 600, color: row.cnAmt > 0 ? "#f59e0b" : "var(--text3)" }}>{row.cnAmt > 0 ? fmtShort(row.cnAmt) : "—"}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div style={card}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 14, display: "flex", justifyContent: "space-between" }}>
+                    Corporate Car Preferences
+                    <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>Most-booked car type per corporate (min 5 trips)</span>
+                </div>
+                {corpCarPreference.length === 0
+                    ? <div style={{ fontSize: 12, color: "var(--text3)" }}>Not enough data</div>
+                    : (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                            {corpCarPreference.map((c, i) => {
+                                const PREF_COLORS = ["#3b82f6","#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#14b8a6","#f97316","#0ea5e9","#a855f7","#84cc16","#ef4444"];
+                                return (
+                                    <div key={c.corp} style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c.corp}>{c.corp}</div>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: PREF_COLORS[i % PREF_COLORS.length], marginBottom: 2 }}>{c.topCar}</div>
+                                        <div style={{ fontSize: 10, color: "var(--text3)" }}>{c.topCarPct}% · {c.total} trips</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )
+                }
+            </div>
+
             {/* ── Trip Detail Table ── */}
             <div style={{ ...card, padding: 0, overflow: "hidden" }}>
                 <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -1838,7 +2297,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                         <thead>
                             <tr style={{ background: "#f8fafc" }}>
-                                {["Booking Ref", "Invoice Month", "Corporate", "Source Branch", "Service Branch", "Car Sent", "Ownership", "Usage Type", "Upgrade", "Kms", "Total", "Payment"].map((h) => (
+                                {["Booking Ref", "Invoice Month", "Corporate", "Source Branch", "Duty City", "Car Sent", "Ownership", "Usage Type", "Upgrade", "Kms", "Total", "Payment"].map((h) => (
                                     <th
                                         key={h}
                                         style={{
@@ -1860,7 +2319,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                         </thead>
                         <tbody>
                             {pagedTrips.map((r, i) => {
-                                const payStatus = r["Payment Status"] || "";
+                                const payStatus = r["PAYMENT STATUS"] || "";
                                 return (
                                     <tr
                                         key={i}
@@ -1870,41 +2329,41 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                                         }}
                                     >
                                         <td style={{ padding: "8px 12px", color: "var(--text)", fontWeight: 600, whiteSpace: "nowrap" }}>
-                                            {r["Booking Ref No"] || "—"}
+                                            {r["BOOKING REFERENCE NUMBER"] || "—"}
                                         </td>
                                         <td style={{ padding: "8px 12px", color: "var(--text3)", whiteSpace: "nowrap" }}>
-                                            {r["Invoice Month"] || "—"}
+                                            {r["INVOICE MONTH"] || "—"}
                                         </td>
                                         <td style={{ padding: "8px 12px", color: "var(--text)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                            {r["Corporate Name"] || "—"}
+                                            {r["CORPORATE NAME"] || "—"}
                                         </td>
                                         <td style={{ padding: "8px 12px", color: "var(--text3)", whiteSpace: "nowrap" }}>
-                                            {r["Source Branch"] || "—"}
+                                            {r["SOURCE BRANCH"] || "—"}
                                         </td>
                                         <td style={{ padding: "8px 12px", color: "var(--text3)", whiteSpace: "nowrap" }}>
-                                            {r["Service Branch"] || r["Duty City"] || "—"}
+                                            {r["DUTY CITY"] || "—"}
                                         </td>
                                         <td style={{ padding: "8px 12px", color: "var(--text)", whiteSpace: "nowrap" }}>
-                                            {r["Car Sent"] || r["Car Booked"] || "—"}
+                                            {r["CAR SENT"] || r["CAR BOOKED"] || "—"}
                                         </td>
                                         <td style={{ padding: "8px 12px" }}>
-                                            <OwnershipBadge type={r["Ownership Type"] || ""} />
+                                            <OwnershipBadge type={r["OWNERSHIP TYPE"] || ""} />
                                         </td>
                                         <td style={{ padding: "8px 12px", color: "var(--text3)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                            {r["Modified Usage Type"] || r["Usage Type"] || "—"}
+                                            {r["MODIFIED USAGE TYPE"] || "—"}
                                         </td>
                                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
-                                            {(r["Upgread"] || "").toUpperCase() === "YES" ? (
+                                            {(r["UPGRADE"] || "").toUpperCase() === "YES" ? (
                                                 <span style={{ fontSize: 10, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "2px 6px", borderRadius: 5 }}>YES</span>
                                             ) : (
                                                 <span style={{ fontSize: 10, color: "var(--text3)" }}>—</span>
                                             )}
                                         </td>
                                         <td style={{ padding: "8px 12px", color: "var(--text3)", textAlign: "right" }}>
-                                            {n(r["Total Kms"]).toFixed(0)}
+                                            {n(r["REVENUE KMS"]).toFixed(0)}
                                         </td>
                                         <td style={{ padding: "8px 12px", fontWeight: 700, color: "var(--text)", textAlign: "right", whiteSpace: "nowrap" }}>
-                                            {fmtShort(n(r["Total"]))}
+                                            {fmtShort(n(r["TOTAL"]))}
                                         </td>
                                         <td style={{ padding: "8px 12px" }}>
                                             <span

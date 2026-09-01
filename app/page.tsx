@@ -11,7 +11,8 @@ import Charts from "./components/Charts";
 import DecisionPanel from "./components/DecisionPanel";
 import VehicleTable from "./components/VehicleTable";
 import PnLTable from "./components/PnLTable";
-import RevenueIntelligence, { type TripRow } from "./components/RevenueIntelligence";
+import RevenueIntelligence from "./components/RevenueIntelligence";
+import type { RevenueRow } from "./lib/types";
 import type { FleetRow } from "./lib/types";
 import { num } from "./lib/dataUtils";
 import { getStoredUser } from "./lib/auth";
@@ -46,7 +47,7 @@ export default function Home() {
   const [addingMonth, setAddingMonth] = useState(false);
 
   // ── Revenue state ──────────────────────────────────────────────────────────
-  const [trips, setTrips] = useState<TripRow[]>([]);
+  const [trips, setTrips] = useState<RevenueRow[]>([]);
   const [tripsLoading, setTripsLoading] = useState(false);
   const [tripsUploading, setTripsUploading] = useState(false);
 
@@ -84,7 +85,7 @@ export default function Home() {
     fetch("/api/revenue")
       .then((r) => r.json())
       .then(({ data }) => {
-        if (data) setTrips(data as TripRow[]);
+        if (data) setTrips(data as RevenueRow[]);
       })
       .catch(console.error)
       .finally(() => setTripsLoading(false));
@@ -215,7 +216,7 @@ export default function Home() {
       // Refresh revenue data
       const dataRes = await fetch("/api/revenue");
       const { data } = await dataRes.json();
-      if (data) setTrips(data as TripRow[]);
+      if (data) setTrips(data as RevenueRow[]);
     } catch (err) {
       alert("Revenue upload error: " + (err as Error).message);
     } finally {

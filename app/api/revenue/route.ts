@@ -75,11 +75,11 @@ export async function POST(request: NextRequest) {
 
     const uploadedAt = new Date().toISOString();
     const items = rows
-      .filter((r) => r["Booking Ref No"] || r["Invoice No"])
+      .filter((r) => r["BOOKING REFERENCE NUMBER"] || r["INVOICE NUMBER"])
       .map((row, idx) => {
         // Build stable PK/SK from booking ref + row index (fallback)
-        const bookingRef = (row["Booking Ref No"] || `ROW${idx}`).replace(/[^a-zA-Z0-9\-\/]/g, "_");
-        const invoiceMonth = (row["Invoice Month"] || "unknown").replace(/[^a-zA-Z0-9\-\/]/g, "_");
+        const bookingRef = (row["BOOKING REFERENCE NUMBER"] || `ROW${idx}`).replace(/[^a-zA-Z0-9\-\/]/g, "_");
+        const invoiceMonth = (row["INVOICE MONTH"] || "unknown").replace(/[^a-zA-Z0-9\-\/]/g, "_");
         return {
           pk: `REVENUE#${invoiceMonth}`,
           sk: `${bookingRef}#${idx}`,
