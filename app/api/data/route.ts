@@ -1,65 +1,79 @@
 // app/api/data/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { BatchWriteCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamo, TABLE_NAME } from "../../lib/dynamodb";
+import { batchWriteWithRetry, chunk } from "../../lib/dynamoBatch";
 import type { FleetRow } from "../../lib/types";
+import { requireRole, UPLOAD_ROLES } from "../../lib/session";
 
-// Paginated scan — DynamoDB Limit is NOT a filter, it caps items read per page.
-// We must keep paginating via LastEvaluatedKey until all items are fetched.
-async function scanAll(): Promise<FleetRow[]> {
-  const items: FleetRow[] = [];
-  let lastKey: Record<string, unknown> | undefined = undefined;
-  do {
-    const result = await dynamo.send(
-      new ScanCommand({
-        TableName: TABLE_NAME,
-        ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
-      })
-    );
-    if (result.Items) items.push(...(result.Items as FleetRow[]));
-    lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastKey);
-  return items;
+// One DynamoDB read per request keeps every response small (the client follows
+// `nextCursor` until it is null). The cursor is opaque: { i: source index, k: start key }.
+const PAGE_LIMIT = 500;
+
+type Source = { type: "scan" } | { type: "query"; branch: string };
+interface Cursor {
+  i: number;
+  k?: Record<string, unknown>;
 }
 
-// Paginated query for a single branch
-async function queryBranch(branch: string): Promise<FleetRow[]> {
-  const items: FleetRow[] = [];
-  let lastKey: Record<string, unknown> | undefined = undefined;
-  do {
-    const result = await dynamo.send(
-      new QueryCommand({
-        TableName: TABLE_NAME,
-        KeyConditionExpression: "pk = :pk",
-        ExpressionAttributeValues: { ":pk": `BRANCH#${branch}` },
-        ...(lastKey ? { ExclusiveStartKey: lastKey } : {}),
-      })
-    );
-    if (result.Items) items.push(...(result.Items as FleetRow[]));
-    lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastKey);
-  return items;
+function decodeCursor(raw: string | null): Cursor {
+  if (!raw) return { i: 0 };
+  try {
+    const c = JSON.parse(Buffer.from(raw, "base64url").toString()) as Cursor;
+    return typeof c.i === "number" && c.i >= 0 ? c : { i: 0 };
+  } catch {
+    return { i: 0 };
+  }
+}
+
+const encodeCursor = (c: Cursor) => Buffer.from(JSON.stringify(c)).toString("base64url");
+
+// What a user may read is decided by their signed session, never by query params.
+function sourcesFor(user: { username: string; role: string; branches?: string[] }): Source[] {
+  if (user.role === "superadmin" || user.role === "admin" || user.role === "developer") {
+    return [{ type: "scan" }];
+  }
+  if (user.role === "manager") {
+    return (user.branches ?? []).map((branch) => ({ type: "query" as const, branch }));
+  }
+  return [{ type: "query", branch: user.username }];
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const branch = searchParams.get("branch") || "";
-    const role = searchParams.get("role") || "";
-    const branchesParam = searchParams.get("branches") || "";
+    const { user, denied } = requireRole(request);
+    if (denied) return denied;
 
-    let items: FleetRow[];
-    if (role === "superadmin" || role === "admin" || role === "developer") {
-      items = await scanAll();
-    } else if (role === "manager" && branchesParam) {
-      const branchList = branchesParam.split(",").filter(Boolean);
-      const results = await Promise.all(branchList.map((b) => queryBranch(b)));
-      items = results.flat();
-    } else if (branch) {
-      items = await queryBranch(branch);
-    } else {
-      items = await scanAll();
+    const sources = sourcesFor(user);
+    const cursor = decodeCursor(new URL(request.url).searchParams.get("cursor"));
+    const source = sources[cursor.i];
+
+    let items: FleetRow[] = [];
+    let nextCursor: string | null = null;
+
+    if (source) {
+      const startKey = cursor.k ? { ExclusiveStartKey: cursor.k } : {};
+      const result =
+        source.type === "scan"
+          ? await dynamo.send(
+              new ScanCommand({ TableName: TABLE_NAME, Limit: PAGE_LIMIT, ...startKey })
+            )
+          : await dynamo.send(
+              new QueryCommand({
+                TableName: TABLE_NAME,
+                KeyConditionExpression: "pk = :pk",
+                ExpressionAttributeValues: { ":pk": `BRANCH#${source.branch}` },
+                Limit: PAGE_LIMIT,
+                ...startKey,
+              })
+            );
+      items = (result.Items ?? []) as FleetRow[];
+      if (result.LastEvaluatedKey) {
+        nextCursor = encodeCursor({ i: cursor.i, k: result.LastEvaluatedKey });
+      } else if (cursor.i + 1 < sources.length) {
+        nextCursor = encodeCursor({ i: cursor.i + 1 });
+      }
     }
 
     // Normalize fields so UI filtering is consistent regardless of stored casing
@@ -75,7 +89,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // DataManager expects a `files` array — derive it from unique _fileName values
+    // DataManager expects a `files` array — derive it from unique _fileName values (this page only)
     const fileMap = new Map<string, { name: string; sha: string; download_url: string }>();
     items.forEach((item) => {
       const fn = (item as unknown as Record<string, string>)["_fileName"];
@@ -84,7 +98,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ data: items, files: [...fileMap.values()] });
+    return NextResponse.json({ data: items, files: [...fileMap.values()], nextCursor });
   } catch (err) {
     console.error("Data fetch error:", err);
     return NextResponse.json(
@@ -96,6 +110,9 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const { denied } = requireRole(request, UPLOAD_ROLES);
+    if (denied) return denied;
+
     const body = await request.json();
     const { filename, branch, month, year } = body as {
       filename?: string;
@@ -113,15 +130,11 @@ export async function DELETE(request: NextRequest) {
       );
       if (keys.length === 0) return NextResponse.json({ success: true, deleted: 0 });
       for (const batch of chunk(keys, 25)) {
-        await dynamo.send(
-          new BatchWriteCommand({
-            RequestItems: {
-              [TABLE_NAME]: batch.map((key) => ({
-                DeleteRequest: { Key: { pk: key.pk, sk: key.sk } },
-              })),
-            },
-          })
+        const left = await batchWriteWithRetry(
+          TABLE_NAME,
+          batch.map((key) => ({ DeleteRequest: { Key: { pk: key.pk, sk: key.sk } } }))
         );
+        if (left > 0) throw new Error("DynamoDB throttled some deletes — try again");
       }
       return NextResponse.json({ success: true, deleted: keys.length });
     }
@@ -147,15 +160,11 @@ export async function DELETE(request: NextRequest) {
 
       if (toDelete.length === 0) return NextResponse.json({ success: true, deleted: 0 });
       for (const batch of chunk(toDelete, 25)) {
-        await dynamo.send(
-          new BatchWriteCommand({
-            RequestItems: {
-              [TABLE_NAME]: batch.map((item) => ({
-                DeleteRequest: { Key: { pk: item.pk, sk: item.sk } },
-              })),
-            },
-          })
+        const left = await batchWriteWithRetry(
+          TABLE_NAME,
+          batch.map((item) => ({ DeleteRequest: { Key: { pk: item.pk, sk: item.sk } } }))
         );
+        if (left > 0) throw new Error("DynamoDB throttled some deletes — try again");
       }
       return NextResponse.json({ success: true, deleted: toDelete.length });
     }
@@ -168,12 +177,6 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
-  return chunks;
 }
 
 async function fetchKeysForBranchMonth(

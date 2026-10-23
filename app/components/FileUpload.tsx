@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { getStoredUser } from "../lib/auth";
+import { postFleetFiles, fetchAllFleetData } from "../lib/api";
 import type { FleetRow } from "../lib/types";
 
 interface Props {
@@ -16,6 +16,7 @@ export default function FileUpload({ onDataLoaded }: Props) {
   const [dragging, setDragging] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   const [duplicateLabels, setDuplicateLabels] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const upload = useCallback(
     async (files: File[], overwrite = false) => {
@@ -23,23 +24,11 @@ export default function FileUpload({ onDataLoaded }: Props) {
 
       setUploading(true);
       setError(null);
+      setWarnings([]);
       setProgress(`Uploading ${files.length} file${files.length > 1 ? "s" : ""}…`);
 
       try {
-        const formData = new FormData();
-        files.forEach((f) => formData.append("files", f));
-        if (overwrite) formData.append("overwrite", "true");
-
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        const uploadResult = await uploadRes.json();
-
-        if (!uploadRes.ok) {
-          throw new Error(uploadResult.error || "Upload failed");
-        }
+        const uploadResult = await postFleetFiles(files, overwrite);
 
         if (uploadResult.duplicates?.length && !overwrite) {
           setDuplicateLabels(uploadResult.duplicates);
@@ -49,25 +38,14 @@ export default function FileUpload({ onDataLoaded }: Props) {
           return;
         }
 
-        if (uploadResult.errors?.length) {
-          console.warn("Upload warnings:", uploadResult.errors);
-        }
+        setProgress(`Saved ${uploadResult.inserted ?? 0} rows. Loading dashboard…`);
 
-        setProgress(`Saved ${uploadResult.inserted} rows. Loading dashboard…`);
-
-        const user = getStoredUser();
-        const role = user?.role || "branch";
-        const branch = user?.username || "";
-        const dataRes = await fetch(`/api/data?role=${role}&branch=${encodeURIComponent(branch)}`);
-        const dataResult = await dataRes.json();
-
-        if (!dataRes.ok) {
-          throw new Error(dataResult.error || "Failed to load data");
-        }
+        const data = await fetchAllFleetData();
 
         setPendingFiles(null);
         setDuplicateLabels([]);
-        onDataLoaded(dataResult.data as FleetRow[]);
+        if (uploadResult.errors?.length) setWarnings(uploadResult.errors);
+        onDataLoaded(data);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -123,7 +101,7 @@ export default function FileUpload({ onDataLoaded }: Props) {
 
   return (
     <div
-      className="flex flex-1 flex-col items-center justify-center min-h-screen"
+      className="flex flex-1 flex-col items-center justify-center min-h-screen px-4 py-8"
       style={{ background: "var(--bg)" }}
     >
       {/* Logo */}
@@ -157,7 +135,7 @@ export default function FileUpload({ onDataLoaded }: Props) {
       </div>
 
       <div
-        className="rounded-2xl p-8 w-full max-w-md"
+        className="rounded-2xl p-5 sm:p-8 w-full max-w-md"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
@@ -168,7 +146,7 @@ export default function FileUpload({ onDataLoaded }: Props) {
           Upload Fleet Data
         </h2>
         <p className="text-sm mb-5 text-center" style={{ color: "var(--text3)" }}>
-          Drag & drop or choose CSV / Excel files.
+          Choose CSV / Excel files to upload.
         </p>
 
         {/* Drag & drop zone */}
@@ -211,10 +189,10 @@ export default function FileUpload({ onDataLoaded }: Props) {
                 className="text-sm font-semibold"
                 style={{ color: dragging ? "var(--accent2)" : "var(--text2)" }}
               >
-                {dragging ? "Drop files here" : "Drag & drop files here"}
+                {dragging ? "Drop files here" : "Tap or drop files here"}
               </p>
               <p className="text-xs mt-0.5" style={{ color: "var(--text3)" }}>
-                or click to browse
+                CSV, XLSX or XLS
               </p>
             </div>
             <input
@@ -299,6 +277,21 @@ export default function FileUpload({ onDataLoaded }: Props) {
             }}
           >
             {error}
+          </div>
+        )}
+
+        {warnings.length > 0 && (
+          <div
+            className="mb-5 rounded-xl px-4 py-3 text-xs"
+            style={{
+              background: "rgba(245,158,11,0.08)",
+              color: "#92400e",
+              border: "1px solid rgba(245,158,11,0.3)",
+            }}
+          >
+            {warnings.map((w, i) => (
+              <p key={i}>· {w}</p>
+            ))}
           </div>
         )}
 

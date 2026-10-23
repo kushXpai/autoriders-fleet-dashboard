@@ -29,9 +29,7 @@ export default function DataManager({ onClose, onDeleted }: Props) {
   async function fetchFiles() {
     setLoading(true);
     try {
-      const role = user?.role || "branch";
-      const branch = user?.username || "";
-      const res = await fetch(`/api/data?role=${role}&branch=${encodeURIComponent(branch)}`);
+      const res = await fetch("/api/data");
       const json = await res.json();
       setFiles(json.files || []);
     } catch {

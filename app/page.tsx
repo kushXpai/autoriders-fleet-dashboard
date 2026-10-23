@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
+import Image from "next/image";
 import UserMenu from "./components/UserMenu";
 import FileUpload from "./components/FileUpload";
 import FilterBar from "./components/FilterBar";
@@ -16,6 +17,7 @@ import type { RevenueRow } from "./lib/types";
 import type { FleetRow } from "./lib/types";
 import { num } from "./lib/dataUtils";
 import { getStoredUser } from "./lib/auth";
+import { postFleetFiles, readJson, fetchAllFleetData } from "./lib/api";
 import VehicleTrend from "./components/VehicleTrend";
 import ManagementReport from "./components/ManagementReport";
 import DeleteDataPanel from "./components/DeleteDataPanel";
@@ -45,10 +47,11 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   const [addingMonth, setAddingMonth] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
 
   // ── Revenue state ──────────────────────────────────────────────────────────
   const [trips, setTrips] = useState<RevenueRow[]>([]);
-  const [tripsLoading, setTripsLoading] = useState(false);
   const [tripsUploading, setTripsUploading] = useState(false);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -63,33 +66,30 @@ export default function Home() {
 
   // ── Load fleet data ────────────────────────────────────────────────────────
   useEffect(() => {
-    const user = getStoredUser();
-    const role = user?.role || "branch";
-    const branch = user?.username || "";
-    const branches = (user?.branches ?? []).join(",");
-    const params = new URLSearchParams({ role, branch });
-    if (branches) params.set("branches", branches);
-    fetch(`/api/data?${params}`)
-      .then((r) => r.json())
-      .then(({ data }) => {
-        if (data && data.length > 0) setAllData(data);
+    fetchAllFleetData()
+      .then((data) => {
+        if (data.length > 0) setAllData(data);
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err);
+        setLoadError((err as Error).message);
+      })
       .finally(() => setInitialLoading(false));
   }, []);
 
   // ── Load revenue data when section becomes active ──────────────────────────
+  const [tripsLoaded, setTripsLoaded] = useState(false);
+  const tripsLoading = activeSection === "revenue" && isDeveloper && !tripsLoaded;
   useEffect(() => {
-    if (activeSection !== "revenue" || !isDeveloper) return;
-    setTripsLoading(true);
+    if (activeSection !== "revenue" || !isDeveloper || tripsLoaded) return;
     fetch("/api/revenue")
-      .then((r) => r.json())
+      .then((r) => readJson<{ data?: RevenueRow[]; error?: string }>(r))
       .then(({ data }) => {
-        if (data) setTrips(data as RevenueRow[]);
+        if (data) setTrips(data);
       })
       .catch(console.error)
-      .finally(() => setTripsLoading(false));
-  }, [activeSection]);
+      .finally(() => setTripsLoaded(true));
+  }, [activeSection, isDeveloper, tripsLoaded]);
 
   // ── Fleet filter options ───────────────────────────────────────────────────
   const branches = useMemo(
@@ -161,44 +161,30 @@ export default function Home() {
     resetFilters();
   }, []);
 
+
   const handleAddMonth = useCallback(async (file: File) => {
     setAddingMonth(true);
     try {
-      const formData = new FormData();
-      formData.append("files", file);
-      formData.append("overwrite", "true");
-      const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json();
-        alert("Upload failed: " + (err.error || "Unknown error"));
-        return;
+      const result = await postFleetFiles([file], true);
+      setAllData(await fetchAllFleetData());
+      resetFilters();
+      if (result.errors?.length) {
+        alert(`Uploaded ${result.inserted ?? 0} rows with warnings:\n\n` + result.errors.join("\n"));
       }
-      const user = getStoredUser();
-      const role = user?.role || "branch";
-      const branch = user?.username || "";
-      const branches = (user?.branches ?? []).join(",");
-      const params = new URLSearchParams({ role, branch });
-      if (branches) params.set("branches", branches);
-      const dataRes = await fetch(`/api/data?${params}`);
-      const { data } = await dataRes.json();
-      if (data) { setAllData(data); resetFilters(); }
     } catch (err) {
-      alert("Error adding month: " + (err as Error).message);
+      alert("Upload failed: " + (err as Error).message);
     } finally {
       setAddingMonth(false);
     }
   }, []);
 
   const handleDeleted = useCallback(async () => {
-    const user = getStoredUser();
-    const role = user?.role || "branch";
-    const branch = user?.username || "";
-    const branches = (user?.branches ?? []).join(",");
-    const params = new URLSearchParams({ role, branch });
-    if (branches) params.set("branches", branches);
-    const res = await fetch(`/api/data?${params}`);
-    const { data } = await res.json();
-    if (data) { setAllData(data); resetFilters(); }
+    try {
+      setAllData(await fetchAllFleetData());
+      resetFilters();
+    } catch (err) {
+      alert("Could not refresh data: " + (err as Error).message);
+    }
   }, []);
 
   // Upload revenue trip file
@@ -209,14 +195,14 @@ export default function Home() {
       formData.append("file", file);
       const res = await fetch("/api/revenue", { method: "POST", body: formData });
       if (!res.ok) {
-        const err = await res.json();
+        const err = await readJson<{ error?: string }>(res);
         alert("Revenue upload failed: " + (err.error || "Unknown error"));
         return;
       }
       // Refresh revenue data
       const dataRes = await fetch("/api/revenue");
-      const { data } = await dataRes.json();
-      if (data) setTrips(data as RevenueRow[]);
+      const { data } = await readJson<{ data?: RevenueRow[] }>(dataRes);
+      if (data) setTrips(data);
     } catch (err) {
       alert("Revenue upload error: " + (err as Error).message);
     } finally {
@@ -234,6 +220,21 @@ export default function Home() {
   }
 
   if (!allData.length) {
+    if (loadError) {
+      return (
+        <div className="flex flex-1 flex-col items-center justify-center min-h-screen gap-3 px-6 text-center" style={{ background: "var(--bg)" }}>
+          <div className="text-sm font-semibold" style={{ color: "var(--red)" }}>Could not load fleet data</div>
+          <div className="text-xs max-w-md" style={{ color: "var(--text3)" }}>{loadError}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-xs font-semibold px-4 py-2 rounded-lg"
+            style={{ color: "var(--accent2)", background: "var(--accent-glow)", border: "1px solid rgba(59,130,246,0.2)" }}
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
     if (canUpload) return <FileUpload onDataLoaded={handleDataLoaded} />;
     return (
       <div className="flex flex-1 flex-col items-center justify-center min-h-screen" style={{ background: "var(--bg)" }}>
@@ -245,7 +246,7 @@ export default function Home() {
   return (
     <div className="flex flex-col flex-1 min-h-screen" style={{ background: "var(--bg)" }}>
       <header
-        className="flex items-center justify-between px-8 sticky top-0 z-50"
+        className="flex items-center justify-between px-4 md:px-8 sticky top-0 z-50 gap-2"
         style={{
           height: 62,
           background: "rgba(255,255,255,0.88)",
@@ -253,13 +254,24 @@ export default function Home() {
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
-            <img src="/autoriders.webp" alt="Autoriders Logo" className="w-28 object-contain" />
+        <div className="flex items-center gap-2 md:gap-3.5 min-w-0">
+          <button
+            type="button"
+            aria-label="Open menu"
+            className="md:hidden flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
+            style={{ border: "1px solid var(--border2)", color: "var(--text2)" }}
+            onClick={() => setNavOpen(true)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <div className="hidden sm:flex w-12 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Image src="/autoriders.webp" alt="Autoriders Logo" width={112} height={84} priority className="w-28 h-auto object-contain" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1
-              className="syne text-lg font-extrabold"
+              className="syne text-base md:text-lg font-extrabold truncate"
               style={{
                 background: "linear-gradient(135deg, #0f1c2e, #3d5270)",
                 WebkitBackgroundClip: "text",
@@ -269,11 +281,11 @@ export default function Home() {
             >
               Autoriders Fleet
             </h1>
-            <div className="text-xs" style={{ color: "var(--text3)" }}>Fleet Intelligence Dashboard</div>
+            <div className="text-xs hidden sm:block" style={{ color: "var(--text3)" }}>Fleet Intelligence Dashboard</div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
           {/* Fleet upload — superadmin and developer only */}
           {activeSection === "fleet" && canUpload && (
             <label
@@ -285,7 +297,7 @@ export default function Home() {
                 pointerEvents: addingMonth ? "none" : "auto",
               }}
             >
-              {addingMonth ? "Uploading…" : "+ Upload File"}
+              {addingMonth ? "Uploading…" : "+ Upload"}
               <input
                 type="file"
                 accept=".csv,.xlsx,.xls"
@@ -303,16 +315,19 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex flex-1">
+      <main className="flex flex-1 min-w-0">
         {/* Sidebar */}
-        <aside className="w-64 border-r flex-shrink-0" style={{ background: "#fff", borderColor: "var(--border)", position: "sticky", top: 62, height: "calc(100vh - 62px)", overflowY: "auto" }}>
+        {navOpen && (
+          <div className="md:hidden fixed inset-0 z-[60]" style={{ background: "rgba(15,23,42,0.45)" }} onClick={() => setNavOpen(false)} />
+        )}
+        <aside className={`side-nav ${navOpen ? "open" : ""} w-64 border-r flex-shrink-0`} style={{ background: "#fff", borderColor: "var(--border)" }}>
           <div className="p-4">
             <div className="text-xs uppercase font-semibold mb-4" style={{ color: "var(--text3)" }}>
               Intelligence Modules
             </div>
 
             <button
-              onClick={() => setActiveSection("fleet")}
+              onClick={() => { setActiveSection("fleet"); setNavOpen(false); }}
               className="w-full text-left px-4 py-3 rounded-xl mb-2 transition"
               style={{
                 background: activeSection === "fleet" ? "var(--accent-glow)" : "transparent",
@@ -324,7 +339,7 @@ export default function Home() {
 
             {isDeveloper && (
             <button
-              onClick={() => setActiveSection("revenue")}
+              onClick={() => { setActiveSection("revenue"); setNavOpen(false); }}
               className="w-full text-left px-4 py-3 rounded-xl mb-2 transition"
               style={{
                 background: activeSection === "revenue" ? "var(--accent-glow)" : "transparent",
@@ -337,7 +352,7 @@ export default function Home() {
 
             {canSeeManagement && (
             <button
-              onClick={() => setActiveSection("management")}
+              onClick={() => { setActiveSection("management"); setNavOpen(false); }}
               className="w-full text-left px-4 py-3 rounded-xl transition"
               style={{
                 background: activeSection === "management" ? "var(--accent-glow)" : "transparent",
@@ -351,7 +366,7 @@ export default function Home() {
         </aside>
 
         {/* Content Area */}
-        <div className="flex-1 px-8 py-6 pb-10 fade-in main-pad" style={{ minWidth: 0, overflow: "hidden" }}>
+        <div className="flex-1 px-4 md:px-8 py-6 pb-10 fade-in main-pad" style={{ minWidth: 0, overflow: "hidden" }}>
           {activeSection === "management" && canSeeManagement ? (
             <ManagementReport allData={allData} />
           ) : activeSection === "fleet" || !isDeveloper ? (

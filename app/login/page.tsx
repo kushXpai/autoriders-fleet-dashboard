@@ -2,8 +2,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { authenticate, storeUser } from "../lib/auth";
+import { storeUser, type User } from "../lib/auth";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -13,20 +14,29 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    const user = authenticate(username, password);
-    if (!user) {
-      setError("Invalid username or password");
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { user?: User; error?: string };
+      if (!res.ok || !body.user) {
+        setError(body.error || "Sign in failed");
+        setLoading(false);
+        return;
+      }
+      storeUser(body.user);
+      router.push("/");
+    } catch {
+      setError("Could not reach the server. Check your connection.");
       setLoading(false);
-      return;
     }
-
-    storeUser(user);
-    router.push("/");
   };
 
   return (
@@ -38,9 +48,12 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <div>
-          <img
+          <Image
             src="/autoriders.webp"
             alt="Autoriders Group"
+            width={80}
+            height={80}
+            priority
             className="w-20 h-20 rounded-full object-cover"
             style={{ boxShadow: "0 0 30px rgba(59,130,246,0.3)" }}
           />
@@ -92,7 +105,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Panel */}
-      <div className="flex-1 flex items-center justify-center p-8" style={{ background: "#f8fafc" }}>
+      <div className="flex-1 flex items-center justify-center p-5 sm:p-8" style={{ background: "#f8fafc" }}>
         <div className="w-full max-w-sm">
           <h1 className="syne text-2xl font-extrabold mb-1" style={{ color: "#0f1c2e" }}>
             Welcome back

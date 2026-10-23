@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getStoredUser, clearUser } from "../lib/auth";
+import { getStoredUser, signOut } from "../lib/auth";
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false);
@@ -13,8 +13,8 @@ export default function UserMenu() {
   const displayName = user?.username || "User";
   const initial = displayName[0].toUpperCase();
 
-  const handleSignOut = () => {
-    clearUser();
+  const handleSignOut = async () => {
+    await signOut();
     router.push("/login");
   };
 
@@ -31,7 +31,7 @@ export default function UserMenu() {
         >
           {initial}
         </span>
-        <span className="capitalize">{displayName}</span>
+        <span className="capitalize hidden sm:inline">{displayName}</span>
       </button>
       {open && (
         <div

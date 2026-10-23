@@ -2,19 +2,17 @@
 // Handles GET (fetch all revenue trips) and POST (upload revenue Excel/CSV)
 
 import { NextRequest, NextResponse } from "next/server";
-import { BatchWriteCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamo } from "../../lib/dynamodb";
+import { batchWriteWithRetry, chunk } from "../../lib/dynamoBatch";
+import { requireRole } from "../../lib/session";
 import * as XLSX from "xlsx";
+
+export const maxDuration = 60;
 
 const REVENUE_TABLE = process.env.REVENUE_TABLE_NAME || "autoriders-revenue";
 const BATCH_SIZE = 25;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB — billing exports can be large
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
 
 // Scan all items from the revenue table with pagination
 async function scanRevenue() {
@@ -33,8 +31,11 @@ async function scanRevenue() {
   return items;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { denied } = requireRole(request, ["developer"]);
+    if (denied) return denied;
+
     const items = await scanRevenue();
     return NextResponse.json({ data: items });
   } catch (err) {
@@ -48,6 +49,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const { denied } = requireRole(request, ["developer"]);
+    if (denied) return denied;
+
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
 
@@ -89,17 +93,29 @@ export async function POST(request: NextRequest) {
         };
       });
 
-    const batches = chunk(items, BATCH_SIZE);
-    let inserted = 0;
-    for (const batch of batches) {
-      await dynamo.send(
-        new BatchWriteCommand({
-          RequestItems: {
-            [REVENUE_TABLE]: batch.map((item) => ({ PutRequest: { Item: item } })),
-          },
-        })
+    if (items.length === 0) {
+      return NextResponse.json(
+        { error: "No rows with a BOOKING REFERENCE NUMBER or INVOICE NUMBER found" },
+        { status: 422 }
       );
-      inserted += batch.length;
+    }
+
+    let inserted = 0;
+    let failed = 0;
+    for (const batch of chunk(items, BATCH_SIZE)) {
+      const left = await batchWriteWithRetry(
+        REVENUE_TABLE,
+        batch.map((item) => ({ PutRequest: { Item: item } }))
+      );
+      inserted += batch.length - left;
+      failed += left;
+    }
+
+    if (failed > 0) {
+      return NextResponse.json(
+        { error: `${failed} rows were not written (DynamoDB throttled). Re-upload the file.`, inserted },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json({ success: true, inserted });

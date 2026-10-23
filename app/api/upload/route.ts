@@ -1,23 +1,54 @@
 // app/api/upload/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { BatchWriteCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamo, TABLE_NAME } from "../../lib/dynamodb";
+import { batchWriteWithRetry, chunk } from "../../lib/dynamoBatch";
+import { requireRole, UPLOAD_ROLES } from "../../lib/session";
 import * as XLSX from "xlsx";
+
+export const maxDuration = 60;
 
 const BATCH_SIZE = 25;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
-  return chunks;
+// Required headers must match exactly (case-sensitive) — a mismatched name means the
+// file is rejected rather than guessed at. Only stray leading/trailing spaces are tolerated.
+const REQUIRED_HEADERS = ["Branch", "Month", "Year", "Registration Number"];
+
+function canonicalHeader(header: string): string {
+  return header.trim();
+}
+
+function titleCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+function normalizeRow(row: Record<string, unknown>): Record<string, string> {
+  const clean: Record<string, string> = {};
+  for (const rawKey in row) {
+    const key = canonicalHeader(rawKey);
+    if (!key || key.startsWith("__EMPTY")) continue;
+    const raw = row[rawKey];
+    const val = typeof raw === "string" ? raw.trim() : String(raw ?? "");
+    if (key === "Branch") {
+      clean[key] = val.toLowerCase();
+    } else if (key === "Month") {
+      clean[key] = titleCase(val);
+    } else if (val !== "" && isNaN(Number(val))) {
+      // Uppercase text to prevent model-name casing duplicates
+      clean[key] = val.toUpperCase();
+    } else {
+      clean[key] = val;
+    }
+  }
+  return clean;
 }
 
 function buildKeys(row: Record<string, string>, rowIndex: number) {
-  const branch = (row["Branch"] || "Unknown").trim().toLowerCase();
-  const year = (row["Year"] || "Unknown").trim();
-  const month = (row["Month"] || "Unknown").trim();
+  const branch = row["Branch"];
+  const year = row["Year"];
+  const month = row["Month"];
   const regNo = (row["Registration Number"] || "").replace(/[^a-zA-Z0-9\-]/g, "_");
   const srNo = row["Sr. No"] || String(rowIndex + 1);
   return {
@@ -25,14 +56,6 @@ function buildKeys(row: Record<string, string>, rowIndex: number) {
     sk: `${year}#${month}#${regNo}#${srNo}`,
     month_year: `${year}#${month}`,
   };
-}
-
-async function writeBatch(items: Record<string, unknown>[]): Promise<number> {
-  const requests = items.map((item) => ({ PutRequest: { Item: item } }));
-  const result = await dynamo.send(
-    new BatchWriteCommand({ RequestItems: { [TABLE_NAME]: requests } })
-  );
-  return result.UnprocessedItems?.[TABLE_NAME]?.length ?? 0;
 }
 
 // Fetch all keys for a given branch+month+year so we can delete them before re-inserting
@@ -64,20 +87,13 @@ async function fetchKeysForMonth(
   return keys;
 }
 
-// Delete all keys in batches of 25
 async function deleteKeys(keys: { pk: string; sk: string }[]): Promise<void> {
-  if (!keys.length) return;
-  const batches = chunk(keys, 25);
-  for (const batch of batches) {
-    await dynamo.send(
-      new BatchWriteCommand({
-        RequestItems: {
-          [TABLE_NAME]: batch.map((key) => ({
-            DeleteRequest: { Key: { pk: key.pk, sk: key.sk } },
-          })),
-        },
-      })
+  for (const batch of chunk(keys, BATCH_SIZE)) {
+    const left = await batchWriteWithRetry(
+      TABLE_NAME,
+      batch.map((key) => ({ DeleteRequest: { Key: { pk: key.pk, sk: key.sk } } }))
     );
+    if (left > 0) throw new Error("Could not clear old records (DynamoDB throttled). Try again.");
   }
 }
 
@@ -99,11 +115,14 @@ async function alreadyExists(branch: string, month: string, year: string): Promi
 
 export async function POST(request: NextRequest) {
   try {
+    const { denied } = requireRole(request, UPLOAD_ROLES);
+    if (denied) return denied;
+
     const formData = await request.formData();
-    const files = formData.getAll("files") as File[];
+    const files = formData.getAll("files").filter((f): f is File => typeof f !== "string");
     const overwrite = formData.get("overwrite") === "true";
 
-    if (!files || files.length === 0) {
+    if (files.length === 0) {
       return NextResponse.json({ error: "No files provided" }, { status: 400 });
     }
 
@@ -122,84 +141,95 @@ export async function POST(request: NextRequest) {
 
     for (const file of files) {
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
+        const buffer = Buffer.from(await file.arrayBuffer());
         const workbook = XLSX.read(buffer, { type: "buffer" });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        if (!sheet) {
+          errors.push(`"${file.name}" has no readable sheet`);
+          continue;
+        }
 
-        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
           defval: "",
           raw: false,
         });
 
-        // Normalize:
-        // Branch → lowercase (matches pk and auth)
-        // Month  → title case ("APRIL" → "April") so MONTH_ORDER works in UI
-        // Rest   → uppercase (prevent model name casing duplicates)
-        const normalizedRows = rows.map((row) => {
-          const clean: Record<string, string> = {};
-          for (const key in row) {
-            const val = row[key];
-            if (key === "Branch") {
-              clean[key] = typeof val === "string" ? val.trim().toLowerCase() : val;
-            } else if (key === "Month") {
-              const s = typeof val === "string" ? val.trim() : String(val).trim();
-              clean[key] = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-            } else if (typeof val === "string" && isNaN(Number(val)) && val.trim() !== "") {
-              clean[key] = val.trim().toUpperCase();
-            } else {
-              clean[key] = typeof val === "string" ? val.trim() : val;
-            }
+        const headers = new Set(Object.keys(rows[0] ?? {}).map(canonicalHeader));
+        const missing = REQUIRED_HEADERS.filter((h) => !headers.has(h));
+        if (missing.length > 0) {
+          errors.push(
+            `"${file.name}": missing required column(s) ${missing.map((m) => `"${m}"`).join(", ")}. ` +
+              `Headers must match exactly. Columns found: ${[...headers].filter(Boolean).join(", ") || "none"}`
+          );
+          continue;
+        }
+
+        const normalized = rows.map(normalizeRow);
+        const withReg = normalized.filter((r) => r["Registration Number"]);
+
+        if (withReg.length === 0) {
+          const found = Object.keys(rows[0] ?? {}).join(", ") || "none";
+          errors.push(
+            `"${file.name}": no rows with a Registration Number. Columns found: ${found}`
+          );
+          continue;
+        }
+
+        // Rows must carry Branch / Month / Year — they form the storage key
+        const validRows = withReg.filter((r) => r["Branch"] && r["Month"] && r["Year"]);
+        const skipped = withReg.length - validRows.length;
+        if (skipped > 0) {
+          errors.push(
+            `"${file.name}": ${skipped} row(s) skipped — Branch, Month and Year are required on every row`
+          );
+        }
+        if (validRows.length === 0) continue;
+
+        // A file may contain several branch/month/year combinations — handle each separately
+        const groups = new Map<string, Record<string, string>[]>();
+        for (const row of validRows) {
+          const gk = `${row["Branch"]}|${row["Month"]}|${row["Year"]}`;
+          const list = groups.get(gk);
+          if (list) list.push(row);
+          else groups.set(gk, [row]);
+        }
+
+        const uploadedAt = new Date().toISOString();
+
+        for (const [gk, groupRows] of groups) {
+          const [branch, month, year] = gk.split("|");
+          const exists = await alreadyExists(branch, month, year);
+
+          if (exists && !overwrite) {
+            duplicates.push(`${branch} — ${month} ${year}`);
+            continue;
           }
-          return clean;
-        });
+          if (exists) {
+            // Remove old records so corrected/removed vehicles don't leave ghosts behind
+            await deleteKeys(await fetchKeysForMonth(branch, month, year));
+          }
 
-        const validRows = normalizedRows.filter(
-          (r) => r["Registration Number"] && String(r["Registration Number"]).trim()
-        );
+          // Guarantee unique sort keys — a duplicate key makes DynamoDB reject the whole batch
+          const seen = new Set<string>();
+          const items = groupRows.map((row, index) => {
+            const keys = buildKeys(row, index);
+            let sk = keys.sk;
+            for (let n = 2; seen.has(sk); n++) sk = `${keys.sk}-${n}`;
+            seen.add(sk);
+            return { ...row, ...keys, sk, _uploadedAt: uploadedAt, _fileName: file.name };
+          });
 
-        if (validRows.length === 0) {
-          errors.push(`"${file.name}" had no valid rows — check the Registration Number column`);
-          continue;
-        }
-
-        const sample = validRows[0];
-        const branch = sample["Branch"] || "Unknown";
-        const month = sample["Month"] || "Unknown";
-        const year = (sample["Year"] || "Unknown").trim();
-
-        const exists = await alreadyExists(branch, month, year);
-
-        if (exists && !overwrite) {
-          // Tell the UI there's a duplicate so it can ask the user to confirm overwrite
-          duplicates.push(`${branch} — ${month} ${year}`);
-          continue;
-        }
-
-        if (exists && overwrite) {
-          // Clean delete all old records for this branch+month+year before inserting new ones
-          // This ensures removed/corrected vehicles don't leave ghost records behind
-          const oldKeys = await fetchKeysForMonth(branch, month, year);
-          await deleteKeys(oldKeys);
-        }
-
-        const items = validRows.map((row, index) => ({
-          ...buildKeys(row, index),
-          ...row,
-          _uploadedAt: new Date().toISOString(),
-          _fileName: file.name,
-        }));
-
-        const batches = chunk(items, BATCH_SIZE);
-        for (const batch of batches) {
-          const unprocessed = await writeBatch(batch);
-          totalInserted += batch.length - unprocessed;
-          if (unprocessed > 0) {
-            errors.push(
-              `${unprocessed} items from "${file.name}" were not written — DynamoDB throttled them. Re-upload the file.`
+          for (const batch of chunk(items, BATCH_SIZE)) {
+            const unprocessed = await batchWriteWithRetry(
+              TABLE_NAME,
+              batch.map((item) => ({ PutRequest: { Item: item } }))
             );
+            totalInserted += batch.length - unprocessed;
+            if (unprocessed > 0) {
+              errors.push(
+                `${unprocessed} items from "${file.name}" (${branch} ${month} ${year}) were not written — DynamoDB throttled them. Re-upload the file.`
+              );
+            }
           }
         }
       } catch (fileErr) {
@@ -207,12 +237,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      inserted: totalInserted,
-      duplicates: duplicates.length > 0 ? duplicates : undefined,
-      errors: errors.length > 0 ? errors : undefined,
-    });
+    const failedCompletely = totalInserted === 0 && duplicates.length === 0 && errors.length > 0;
+
+    return NextResponse.json(
+      {
+        success: !failedCompletely,
+        inserted: totalInserted,
+        duplicates: duplicates.length > 0 ? duplicates : undefined,
+        errors: errors.length > 0 ? errors : undefined,
+        error: failedCompletely ? errors.join(" | ") : undefined,
+      },
+      { status: failedCompletely ? 422 : 200 }
+    );
   } catch (err) {
     console.error("Upload route error:", err);
     return NextResponse.json(

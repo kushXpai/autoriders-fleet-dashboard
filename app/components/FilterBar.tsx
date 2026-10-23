@@ -61,12 +61,12 @@ function MultiSelect({
     selected.length === 0 ? label : `${label} (${selected.length})`;
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative min-w-0">
       <button
         type="button"
         className="fleet-select"
         onClick={() => setOpen((o) => !o)}
-        style={{ minWidth: 130, textAlign: "left" }}
+        style={{ minWidth: 130, textAlign: "left", width: "100%" }}
       >
         {displayText}
       </button>
@@ -125,16 +125,16 @@ export default function FilterBar({
 }: Props) {
   return (
     <div
-      className="rounded-2xl px-5 py-3.5 flex gap-3.5 items-center flex-wrap mb-5"
+      className="filter-bar rounded-2xl px-4 md:px-5 py-3.5 flex gap-3 md:gap-3.5 items-center flex-wrap mb-5"
       style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
     >
       <span
-        className="text-xs font-semibold uppercase tracking-widest"
+        className="filter-title text-xs font-semibold uppercase tracking-widest"
         style={{ color: "var(--text3)" }}
       >
         Filters
       </span>
-      <div className="w-px h-6" style={{ background: "var(--border)" }} />
+      <div className="filter-divider w-px h-6" style={{ background: "var(--border)" }} />
 
       {/* Branch — stored lowercase, displayed with first letter capitalised */}
       <MultiSelect

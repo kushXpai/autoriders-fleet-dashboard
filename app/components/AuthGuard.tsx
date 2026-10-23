@@ -2,7 +2,7 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getStoredUser } from "../lib/auth";
+import { getStoredUser, clearUser } from "../lib/auth";
 
 export default function AuthGuard() {
   const router = useRouter();
@@ -12,9 +12,20 @@ export default function AuthGuard() {
     // Don't force a redirect loop on the login page itself
     if (pathname === "/login") return;
 
-    const check = () => {
+    const check = async () => {
       if (!getStoredUser()) {
         router.push("/login");
+        return;
+      }
+      // Confirm the server session cookie is still valid (API routes require it)
+      try {
+        const res = await fetch("/api/session", { cache: "no-store" });
+        if (res.status === 401) {
+          clearUser();
+          router.push("/login");
+        }
+      } catch {
+        // offline / transient — leave the user where they are
       }
     };
 

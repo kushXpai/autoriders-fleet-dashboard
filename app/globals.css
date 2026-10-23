@@ -136,3 +136,50 @@ body {
   .kpi-grid-resp { grid-template-columns: 1fr 1fr !important; }
   .chart-mid-resp, .chart-bot-resp, .insight-resp { grid-template-columns: 1fr !important; }
 }
+/* ── Sidebar: sticky column on desktop, slide-in drawer on mobile ───────── */
+.side-nav {
+  position: sticky;
+  top: 62px;
+  height: calc(100vh - 62px);
+  overflow-y: auto;
+}
+@media (max-width: 767px) {
+  .side-nav {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    height: 100dvh;
+    z-index: 70;
+    padding-top: 62px;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    box-shadow: 4px 0 24px rgba(15,23,42,0.18);
+  }
+  .side-nav.open { transform: translateX(0); }
+}
+
+/* ── Mobile polish ──────────────────────────────────────────────────────── */
+@media (max-width: 780px) {
+  html { -webkit-text-size-adjust: 100%; }
+  /* Collapse every inline multi-column grid (Revenue / Management / Decision panels) */
+  [style*="grid-template-columns"]:not(.kpi-grid-resp) { grid-template-columns: 1fr !important; }
+  .table-search { width: 100%; min-width: 0; }
+  .fleet-select { max-width: 100%; }
+  /* Filters: two per row, no fixed min widths */
+  .filter-bar > * { flex: 1 1 calc(50% - 12px); min-width: 0; }
+  .filter-bar .fleet-select { width: 100%; min-width: 0 !important; }
+  .filter-bar .filter-title, .filter-bar .filter-divider { display: none; }
+  /* iOS zooms inputs under 16px */
+  input, select, textarea { font-size: 16px; }
+  button, label { touch-action: manipulation; }
+}
+@media (max-width: 420px) {
+  .kpi-grid-resp { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 780px) {
+  /* Wide tables keep a readable width and scroll sideways inside their card */
+  [style*="overflow-x: auto"] > table,
+  .overflow-x-auto > table { min-width: 720px; }
+  input[style*="width: 260px"] { width: 100% !important; }
+  [style*="z-index: 9999"] > div { padding: 18px 16px !important; }
+}
