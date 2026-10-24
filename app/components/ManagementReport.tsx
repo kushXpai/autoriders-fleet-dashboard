@@ -220,10 +220,10 @@ function computeModelRows(dataA: FleetRow[], dataB: FleetRow[]): ModelRow[] {
 function DeltaBadge({ val, invert = false, suffix = "%" }: { val: number; invert?: boolean; suffix?: string }) {
   const good = invert ? val < 0 : val > 0;
   const neutral = Math.abs(val) < 0.1;
-  const color = neutral ? "#6b7280" : good ? "#16a34a" : "#dc2626";
+  const color = neutral ? "#6b7280" : good ? "#15803d" : "#b91c1c";
   const bg = neutral ? "#f3f4f6" : good ? "#dcfce7" : "#fee2e2";
   return (
-    <span style={{ background: bg, color, fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" }}>
+    <span style={{ background: bg, color, fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" }}>
       {val > 0.1 ? "▲" : val < -0.1 ? "▼" : "—"} {Math.abs(val).toFixed(1)}{suffix}
     </span>
   );
@@ -231,8 +231,8 @@ function DeltaBadge({ val, invert = false, suffix = "%" }: { val: number; invert
 
 function SectionCard({ title, children, style }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div style={{ background: "#fff", borderRadius: 16, border: "1px solid var(--border)", padding: "24px 28px", marginBottom: 20, ...style }}>
-      <h3 className="syne" style={{ fontSize: 15, fontWeight: 700, color: "#0f1c2e", marginBottom: 18 }}>{title}</h3>
+    <div style={{ background: "#fff", borderRadius: 8, border: "1px solid var(--border)", padding: "24px 28px", marginBottom: 20, ...style }}>
+      <h3 style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 18 }}>{title}</h3>
       {children}
     </div>
   );
@@ -370,7 +370,7 @@ export default function ManagementReport({ allData }: Props) {
     border: "1px solid var(--border)",
     fontSize: 13,
     fontWeight: 600,
-    color: "#0f1c2e",
+    color: "#111827",
     background: "#f8fafc",
     minWidth: 180,
     cursor: "pointer",
@@ -384,8 +384,8 @@ export default function ManagementReport({ allData }: Props) {
     <div style={{ fontFamily: "inherit" }}>
 
       {/* ── Quarter selector ── */}
-      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid var(--border)", padding: "24px 28px", marginBottom: 24 }}>
-        <h2 className="syne" style={{ fontSize: 20, fontWeight: 800, color: "#0f1c2e", marginBottom: 4 }}>
+      <div style={{ background: "#fff", borderRadius: 8, border: "1px solid var(--border)", padding: "24px 28px", marginBottom: 24 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 600, color: "#111827", marginBottom: 4 }}>
           Management Report
         </h2>
         <p style={{ fontSize: 13, color: "var(--text3)", marginBottom: 20 }}>
@@ -408,7 +408,7 @@ export default function ManagementReport({ allData }: Props) {
               </select>
             </div>
           ))}
-          <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text3)", paddingBottom: 10 }}>vs</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text3)", paddingBottom: 10 }}>vs</div>
 
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text3)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -425,20 +425,19 @@ export default function ManagementReport({ allData }: Props) {
         </div>
 
         {sameQuarter && (
-          <p style={{ marginTop: 12, fontSize: 12, color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 12px", display: "inline-block" }}>
+          <p style={{ marginTop: 12, fontSize: 12, color: "var(--amber)", background: "var(--amber-dim)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px", display: "inline-block" }}>
             Both quarters are the same — select two different quarters.
           </p>
         )}
         {!sameQuarter && quarterA && quarterB && (dataA.length === 0 || dataB.length === 0) && (
-          <p style={{ marginTop: 12, fontSize: 12, color: "#dc2626" }}>No data found for one or both selected quarters.</p>
+          <p style={{ marginTop: 12, fontSize: 12, color: "#b91c1c" }}>No data found for one or both selected quarters.</p>
         )}
       </div>
 
       {/* ── Empty state ── */}
       {!quarterA && !quarterB && (
         <div style={{ textAlign: "center", padding: "72px 20px", color: "var(--text3)" }}>
-          <div style={{ fontSize: 48, marginBottom: 14 }}>📊</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#374151", marginBottom: 6 }}>Select Two Quarters to Begin</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#374151", marginBottom: 6 }}>Select Two Quarters to Begin</div>
           <div style={{ fontSize: 13 }}>Choose a base and a comparison quarter above to generate the report.</div>
         </div>
       )}
@@ -449,13 +448,13 @@ export default function ManagementReport({ allData }: Props) {
       {showReport && (
         <>
           {/* ── Header banner ── */}
-          <div style={{ background: "linear-gradient(135deg, #0f1c2e 0%, #1e3a5f 55%, #2d5a8e 100%)", borderRadius: 16, padding: "28px 32px", marginBottom: 20, color: "#fff" }}>
+          <div style={{ background: "#111827", borderRadius: 8, padding: "28px 32px", marginBottom: 20, color: "#fff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
               <div>
                 <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.4)", marginBottom: 8 }}>
                   Quarterly Management Report · Autoriders Fleet Intelligence
                 </div>
-                <h2 className="syne" style={{ fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: "-0.5px" }}>
+                <h2 style={{ fontSize: 24, fontWeight: 600, margin: 0, letterSpacing: "-0.5px" }}>
                   {labelA} → {labelB}
                 </h2>
                 <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginTop: 6 }}>
@@ -502,7 +501,7 @@ export default function ManagementReport({ allData }: Props) {
                       textAlign: "center",
                     }}
                   >
-                    <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.3px", lineHeight: 1.1 }}>
+                    <div style={{ fontSize: 22, fontWeight: 600, color: "#fff", letterSpacing: "-0.3px", lineHeight: 1.1 }}>
                       {primary}
                     </div>
                     <div
@@ -510,7 +509,7 @@ export default function ManagementReport({ allData }: Props) {
                         fontSize: 12,
                         fontWeight: 700,
                         marginTop: 5,
-                        color: Math.abs(delta) < 0.1 ? "rgba(255,255,255,0.5)" : improved ? "#86efac" : "#fca5a5",
+                        color: Math.abs(delta) < 0.1 ? "rgba(255,255,255,0.5)" : improved ? "#86efac" : "#b91c1c",
                       }}
                     >
                       {delta > 0.1 ? "▲" : delta < -0.1 ? "▼" : "—"}{" "}
@@ -532,7 +531,7 @@ export default function ManagementReport({ allData }: Props) {
                 <thead>
                   <tr style={{ borderBottom: "2px solid var(--border)" }}>
                     {["Metric", labelA, labelB, "Change"].map((h, i) => (
-                      <th key={h} style={{ padding: "8px 14px", textAlign: i === 0 ? "left" : "right", color: i === 1 ? "#3b82f6" : i === 2 ? "#0f1c2e" : "var(--text3)", fontWeight: i === 0 ? 600 : 700, fontSize: i === 0 || i === 3 ? 11 : 12, textTransform: i === 0 || i === 3 ? "uppercase" : undefined, letterSpacing: i === 0 || i === 3 ? "0.05em" : undefined }}>
+                      <th key={h} style={{ padding: "8px 14px", textAlign: i === 0 ? "left" : "right", color: i === 1 ? "#2c5f9e" : i === 2 ? "#111827" : "var(--text3)", fontWeight: i === 0 ? 600 : 700, fontSize: i === 0 || i === 3 ? 11 : 12, textTransform: i === 0 || i === 3 ? "uppercase" : undefined, letterSpacing: i === 0 || i === 3 ? "0.05em" : undefined }}>
                         {h}
                       </th>
                     ))}
@@ -558,12 +557,12 @@ export default function ManagementReport({ allData }: Props) {
                     ({ label, a, b, fmt, invert, ppDelta }, i) => {
                       const d = ppDelta ? b - a : pctDelta(a, b);
                       const isGood = invert ? d < 0 : d > 0;
-                      const color = Math.abs(d) < 0.1 ? "#6b7280" : isGood ? "#16a34a" : "#dc2626";
+                      const color = Math.abs(d) < 0.1 ? "#6b7280" : isGood ? "#15803d" : "#b91c1c";
                       return (
                         <tr key={label} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fafbfc" : "#fff" }}>
                           <td style={{ padding: "11px 14px", fontWeight: 600, color: "#374151" }}>{label}</td>
                           <td style={{ padding: "11px 14px", textAlign: "right", color: "#94a3b8" }}>{fmt(a)}</td>
-                          <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 700, color: "#0f1c2e" }}>{fmt(b)}</td>
+                          <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 700, color: "#111827" }}>{fmt(b)}</td>
                           <td style={{ padding: "11px 14px", textAlign: "right" }}>
                             {ppDelta ? (
                               <span style={{ color, fontWeight: 700, fontSize: 12 }}>
@@ -583,12 +582,12 @@ export default function ManagementReport({ allData }: Props) {
           </SectionCard>
 
           {/* ── Branch comparison — 2 columns ── */}
-          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid var(--border)", padding: "24px 28px", marginBottom: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 8, border: "1px solid var(--border)", padding: "24px 28px", marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 className="syne" style={{ fontSize: 15, fontWeight: 700, color: "#0f1c2e", margin: 0 }}>Branch Performance Comparison</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: "#111827", margin: 0 }}>Branch Performance Comparison</h3>
               <div style={{ display: "flex", gap: 16, fontSize: 11, color: "var(--text3)" }}>
-                <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "rgba(59,130,246,0.45)", marginRight: 5 }} />{labelA}</span>
-                <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "rgba(16,185,129,0.55)", marginRight: 5 }} />{labelB}</span>
+                <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "rgba(44,95,158,0.45)", marginRight: 5 }} />{labelA}</span>
+                <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "rgba(21,128,61,0.55)", marginRight: 5 }} />{labelB}</span>
               </div>
             </div>
 
@@ -611,17 +610,17 @@ export default function ManagementReport({ allData }: Props) {
                       </div>
                       <div>
                         <div style={{ color: "var(--text3)", marginBottom: 2 }}>{labelB} Rev</div>
-                        <div style={{ fontWeight: 700, color: "#0f1c2e" }}>{cr(b.revB)}</div>
+                        <div style={{ fontWeight: 700, color: "#111827" }}>{cr(b.revB)}</div>
                       </div>
                       <div>
                         <div style={{ color: "var(--text3)", marginBottom: 2 }}>{labelB} Profit</div>
-                        <div style={{ fontWeight: 600, color: b.profitB >= 0 ? "#16a34a" : "#dc2626" }}>{cr(b.profitB)}</div>
+                        <div style={{ fontWeight: 600, color: b.profitB >= 0 ? "#15803d" : "#b91c1c" }}>{cr(b.profitB)}</div>
                       </div>
                       <div>
                         <div style={{ color: "var(--text3)", marginBottom: 2 }}>Margin</div>
                         <div style={{ fontWeight: 600, color: "#374151" }}>
                           {b.marginB.toFixed(1)}%
-                          <span style={{ fontSize: 10, color: marginD >= 0 ? "#16a34a" : "#dc2626", marginLeft: 4 }}>
+                          <span style={{ fontSize: 10, color: marginD >= 0 ? "#15803d" : "#b91c1c", marginLeft: 4 }}>
                             {marginD >= 0 ? "▲" : "▼"}{Math.abs(marginD).toFixed(1)}pp
                           </span>
                         </div>
@@ -658,30 +657,30 @@ export default function ManagementReport({ allData }: Props) {
                       <tr key={m.model} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fafbfc" : "#fff" }}>
                         <td style={{ padding: "10px 10px", fontWeight: 700, color: "#374151" }}>
                           <div>{m.model}</div>
-                          <MiniBar val={m.revB} max={maxModelRev} color="#3b82f6" />
+                          <MiniBar val={m.revB} max={maxModelRev} color="#2c5f9e" />
                         </td>
                         <td style={{ padding: "10px 10px", textAlign: "right", color: "#6b7280" }}>
                           {m.countB > 0 ? m.countB : "—"}
                           {m.countA !== m.countB && (
-                            <div style={{ fontSize: 10, color: m.countB > m.countA ? "#16a34a" : "#dc2626" }}>
+                            <div style={{ fontSize: 10, color: m.countB > m.countA ? "#15803d" : "#b91c1c" }}>
                               {m.countB > m.countA ? "▲" : "▼"}{Math.abs(m.countB - m.countA)}
                             </div>
                           )}
                         </td>
                         <td style={{ padding: "10px 10px", textAlign: "right", color: "#94a3b8" }}>{m.revA > 0 ? cr(m.revA) : "—"}</td>
-                        <td style={{ padding: "10px 10px", textAlign: "right", fontWeight: 700, color: "#0f1c2e" }}>{m.revB > 0 ? cr(m.revB) : "—"}</td>
+                        <td style={{ padding: "10px 10px", textAlign: "right", fontWeight: 700, color: "#111827" }}>{m.revB > 0 ? cr(m.revB) : "—"}</td>
                         <td style={{ padding: "10px 10px", textAlign: "right" }}><DeltaBadge val={revD} /></td>
-                        <td style={{ padding: "10px 10px", textAlign: "right", fontWeight: 600, color: m.profitB >= 0 ? "#15803d" : "#dc2626" }}>{cr(m.profitB)}</td>
+                        <td style={{ padding: "10px 10px", textAlign: "right", fontWeight: 600, color: m.profitB >= 0 ? "#15803d" : "#b91c1c" }}>{cr(m.profitB)}</td>
                         <td style={{ padding: "10px 10px", textAlign: "right" }}>
                           <span style={{ fontWeight: 600, color: "#374151" }}>{m.marginB.toFixed(1)}%</span>
-                          <span style={{ fontSize: 10, color: marginD >= 0 ? "#16a34a" : "#dc2626", marginLeft: 4 }}>
+                          <span style={{ fontSize: 10, color: marginD >= 0 ? "#15803d" : "#b91c1c", marginLeft: 4 }}>
                             {marginD >= 0 ? "▲" : "▼"}{Math.abs(marginD).toFixed(1)}pp
                           </span>
                         </td>
                         <td style={{ padding: "10px 10px", textAlign: "right", color: "#6b7280" }}>{m.avgRevB > 0 ? cr(m.avgRevB) : "—"}</td>
                         <td style={{ padding: "10px 10px", textAlign: "right", color: "#6b7280" }}>
                           {m.kmsB > 0 ? Math.round(m.kmsB).toLocaleString("en-IN") : "—"}
-                          <div style={{ fontSize: 10, color: pctDelta(m.kmsA, m.kmsB) >= 0 ? "#16a34a" : "#dc2626" }}>
+                          <div style={{ fontSize: 10, color: pctDelta(m.kmsA, m.kmsB) >= 0 ? "#15803d" : "#b91c1c" }}>
                             {m.kmsA > 0 && m.kmsB > 0 ? `${pctDelta(m.kmsA, m.kmsB) >= 0 ? "▲" : "▼"}${Math.abs(pctDelta(m.kmsA, m.kmsB)).toFixed(1)}%` : ""}
                           </div>
                         </td>
@@ -711,7 +710,7 @@ export default function ManagementReport({ allData }: Props) {
                 return (
                   <div key={label} style={{ background: cardBg, borderRadius: 10, border: "1px solid #e2e8f0", padding: "14px 16px" }}>
                     <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{label}</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: valColor, marginBottom: 4 }}>{fmt(b)}</div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: valColor, marginBottom: 4 }}>{fmt(b)}</div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontSize: 11, color: "#94a3b8" }}>was {fmt(a)}</span>
                       <DeltaBadge val={d} invert={!good} />
@@ -726,13 +725,13 @@ export default function ManagementReport({ allData }: Props) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20, marginBottom: 20 }}>
 
             {/* Cost breakdown */}
-            <div style={{ background: "#fff", borderRadius: 16, border: "1px solid var(--border)", padding: "24px 28px" }}>
-              <h3 className="syne" style={{ fontSize: 15, fontWeight: 700, color: "#0f1c2e", marginBottom: 18 }}>Cost Structure</h3>
+            <div style={{ background: "#fff", borderRadius: 8, border: "1px solid var(--border)", padding: "24px 28px" }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 18 }}>Cost Structure</h3>
               {([
-                { label: "Fuel", a: mA.fuelCost, b: mB.fuelCost, color: "#f59e0b" },
-                { label: "Repair & Maintenance", a: mA.repairCost, b: mB.repairCost, color: "#ef4444" },
-                { label: "Chauffeur", a: mA.chauffeurCost, b: mB.chauffeurCost, color: "#8b5cf6" },
-                { label: "EMI / Financing", a: mA.emi, b: mB.emi, color: "#3b82f6" },
+                { label: "Fuel", a: mA.fuelCost, b: mB.fuelCost, color: "#a16207" },
+                { label: "Repair & Maintenance", a: mA.repairCost, b: mB.repairCost, color: "#b91c1c" },
+                { label: "Chauffeur", a: mA.chauffeurCost, b: mB.chauffeurCost, color: "#94a3b8" },
+                { label: "EMI / Financing", a: mA.emi, b: mB.emi, color: "#2c5f9e" },
               ] as { label: string; a: number; b: number; color: string }[]).map(({ label, a, b, color }) => {
                 const d = pctDelta(a, b);
                 const pct = mB.cost > 0 ? (b / mB.cost) * 100 : 0;
@@ -745,7 +744,7 @@ export default function ManagementReport({ allData }: Props) {
                       </span>
                       <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
                         <span style={{ color: "#94a3b8" }}>{cr(a)}</span>
-                        <span style={{ fontWeight: 700, color: "#0f1c2e" }}>{cr(b)}</span>
+                        <span style={{ fontWeight: 700, color: "#111827" }}>{cr(b)}</span>
                         <DeltaBadge val={d} invert />
                       </span>
                     </div>
@@ -759,12 +758,12 @@ export default function ManagementReport({ allData }: Props) {
             </div>
 
             {/* Revenue mix */}
-            <div style={{ background: "#fff", borderRadius: 16, border: "1px solid var(--border)", padding: "24px 28px" }}>
-              <h3 className="syne" style={{ fontSize: 15, fontWeight: 700, color: "#0f1c2e", marginBottom: 18 }}>Revenue Mix</h3>
+            <div style={{ background: "#fff", borderRadius: 8, border: "1px solid var(--border)", padding: "24px 28px" }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 18 }}>Revenue Mix</h3>
               {([
-                { label: "Corporate Drive (CD)", a: mA.cdRevenue, b: mB.cdRevenue, color: "#3b82f6" },
-                { label: "Self Drive (SD)", a: mA.sdRevenue, b: mB.sdRevenue, color: "#10b981" },
-                { label: "Short Term Rental (STR)", a: mA.strRevenue, b: mB.strRevenue, color: "#f59e0b" },
+                { label: "Corporate Drive (CD)", a: mA.cdRevenue, b: mB.cdRevenue, color: "#2c5f9e" },
+                { label: "Self Drive (SD)", a: mA.sdRevenue, b: mB.sdRevenue, color: "#15803d" },
+                { label: "Short Term Rental (STR)", a: mA.strRevenue, b: mB.strRevenue, color: "#a16207" },
               ] as { label: string; a: number; b: number; color: string }[]).map(({ label, a, b, color }) => {
                 const d = pctDelta(a, b);
                 const pctB = mB.revenue > 0 ? (b / mB.revenue) * 100 : 0;
@@ -778,7 +777,7 @@ export default function ManagementReport({ allData }: Props) {
                       </span>
                       <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
                         <span style={{ color: "#94a3b8" }}>{cr(a)}</span>
-                        <span style={{ fontWeight: 700, color: "#0f1c2e" }}>{cr(b)}</span>
+                        <span style={{ fontWeight: 700, color: "#111827" }}>{cr(b)}</span>
                         <DeltaBadge val={d} />
                       </span>
                     </div>
@@ -788,7 +787,7 @@ export default function ManagementReport({ allData }: Props) {
                     <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 3 }}>
                       {pctB.toFixed(1)}% of revenue in {labelB}
                       {Math.abs(pctB - pctA) > 0.5 && (
-                        <span style={{ color: pctB > pctA ? "#16a34a" : "#dc2626", marginLeft: 6 }}>
+                        <span style={{ color: pctB > pctA ? "#15803d" : "#b91c1c", marginLeft: 6 }}>
                           (was {pctA.toFixed(1)}% in {labelA})
                         </span>
                       )}
@@ -802,14 +801,13 @@ export default function ManagementReport({ allData }: Props) {
           {/* ── Management Insights ── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 24 }}>
             {[
-              { icon: "✅", title: "What Worked", items: insights.wins, bg: "#f0fdf4", border: "#bbf7d0", titleColor: "#15803d", dotColor: "#16a34a", textColor: "#166534", empty: "No significant improvements detected.", ordered: false },
-              { icon: "⚠️", title: "Challenges & Risks", items: insights.challenges, bg: "#fef2f2", border: "#fecaca", titleColor: "#b91c1c", dotColor: "#dc2626", textColor: "#991b1b", empty: "No major challenges identified.", ordered: false },
-              { icon: "💡", title: "Recommendations", items: insights.recommendations, bg: "#eff6ff", border: "#bfdbfe", titleColor: "#1d4ed8", dotColor: "#3b82f6", textColor: "#1e40af", empty: "No specific recommendations at this time.", ordered: true },
-            ].map(({ icon, title, items, bg, border, titleColor, dotColor, textColor, empty, ordered }) => (
-              <div key={title} style={{ background: bg, borderRadius: 16, border: `1px solid ${border}`, padding: "22px 24px" }}>
+              { title: "What Worked", items: insights.wins, bg: "var(--surface)", border: "var(--border)", titleColor: "#15803d", dotColor: "#15803d", textColor: "var(--text2)", empty: "No significant improvements detected.", ordered: false },
+              { title: "Challenges & Risks", items: insights.challenges, bg: "var(--surface)", border: "var(--border)", titleColor: "#b91c1c", dotColor: "#b91c1c", textColor: "var(--text2)", empty: "No major challenges identified.", ordered: false },
+              { title: "Recommendations", items: insights.recommendations, bg: "var(--surface)", border: "var(--border)", titleColor: "#1d4ed8", dotColor: "#2c5f9e", textColor: "var(--text2)", empty: "No specific recommendations at this time.", ordered: true },
+            ].map(({ title, items, bg, border, titleColor, dotColor, textColor, empty, ordered }) => (
+              <div key={title} style={{ background: bg, borderRadius: 8, border: `1px solid ${border}`, padding: "22px 24px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
-                  <span style={{ fontSize: 18, lineHeight: 1 }}>{icon}</span>
-                  <h3 className="syne" style={{ fontSize: 14, fontWeight: 700, color: titleColor, margin: 0 }}>{title}</h3>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: titleColor, margin: 0 }}>{title}</h3>
                 </div>
                 {items.length > 0 ? (
                   ordered ? (

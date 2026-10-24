@@ -22,12 +22,12 @@ export default function UserMenu() {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-white/50 transition-colors"
+        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-50 transition-colors"
         style={{ color: "var(--text2)" }}
       >
         <span
-          className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-          style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)" }}
+          className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-semibold"
+          style={{ background: "var(--text)" }}
         >
           {initial}
         </span>

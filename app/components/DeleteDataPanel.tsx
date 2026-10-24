@@ -97,7 +97,7 @@ export default function DeleteDataPanel({ allData, onDeleted }: Props) {
   return (
     <div
       className="rounded-2xl p-5 mb-3.5"
-      style={{ background: "var(--surface)", border: "1px solid rgba(220,38,38,0.2)" }}
+      style={{ background: "var(--surface)", border: "1px solid rgba(185,28,28,0.2)" }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
@@ -112,9 +112,9 @@ export default function DeleteDataPanel({ allData, onDeleted }: Props) {
         <span
           className="text-xs font-bold px-2.5 py-1 rounded-full"
           style={{
-            background: "rgba(220,38,38,0.08)",
-            color: "#dc2626",
-            border: "1px solid rgba(220,38,38,0.2)",
+            background: "rgba(185,28,28,0.08)",
+            color: "#b91c1c",
+            border: "1px solid rgba(185,28,28,0.2)",
           }}
         >
           Superadmin only
@@ -173,9 +173,9 @@ export default function DeleteDataPanel({ allData, onDeleted }: Props) {
             disabled={!branch || !monthYear}
             className="text-xs font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
             style={{
-              background: "rgba(220,38,38,0.08)",
-              color: "#dc2626",
-              border: "1px solid rgba(220,38,38,0.3)",
+              background: "rgba(185,28,28,0.08)",
+              color: "#b91c1c",
+              border: "1px solid rgba(185,28,28,0.3)",
             }}
           >
             Delete →
@@ -188,15 +188,15 @@ export default function DeleteDataPanel({ allData, onDeleted }: Props) {
         <div
           className="rounded-xl px-5 py-4 flex items-start justify-between gap-4 flex-wrap"
           style={{
-            background: "rgba(220,38,38,0.06)",
-            border: "1px solid rgba(220,38,38,0.2)",
+            background: "rgba(185,28,28,0.06)",
+            border: "1px solid rgba(185,28,28,0.2)",
           }}
         >
           <div>
-            <div className="text-sm font-semibold mb-1" style={{ color: "#dc2626" }}>
+            <div className="text-sm font-semibold mb-1" style={{ color: "#b91c1c" }}>
               Confirm deletion
             </div>
-            <div className="text-xs" style={{ color: "#7f1d1d" }}>
+            <div className="text-xs" style={{ color: "#b91c1c" }}>
               This will permanently delete{" "}
               <strong>{rowCount} rows</strong> for{" "}
               <strong>{cap(branch)}</strong> —{" "}
@@ -209,7 +209,7 @@ export default function DeleteDataPanel({ allData, onDeleted }: Props) {
               onClick={handleDelete}
               disabled={deleting}
               className="text-xs font-bold px-4 py-2 rounded-lg disabled:opacity-60"
-              style={{ background: "#dc2626", color: "#fff", border: "none" }}
+              style={{ background: "#b91c1c", color: "#fff", border: "none" }}
             >
               {deleting ? "Deleting…" : "Yes, delete"}
             </button>
@@ -234,9 +234,9 @@ export default function DeleteDataPanel({ allData, onDeleted }: Props) {
         <div
           className="mt-3 flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-medium"
           style={{
-            background: result.ok ? "rgba(16,185,129,0.08)" : "rgba(220,38,38,0.08)",
-            color: result.ok ? "#059669" : "#dc2626",
-            border: `1px solid ${result.ok ? "rgba(16,185,129,0.2)" : "rgba(220,38,38,0.2)"}`,
+            background: result.ok ? "rgba(21,128,61,0.08)" : "rgba(185,28,28,0.08)",
+            color: result.ok ? "#15803d" : "#b91c1c",
+            border: `1px solid ${result.ok ? "rgba(21,128,61,0.2)" : "rgba(185,28,28,0.2)"}`,
           }}
         >
           <span>{result.msg}</span>
@@ -245,7 +245,7 @@ export default function DeleteDataPanel({ allData, onDeleted }: Props) {
             className="ml-4 opacity-60 hover:opacity-100"
             style={{ background: "none", border: "none", cursor: "pointer", color: "inherit" }}
           >
-            ✕
+            ×
           </button>
         </div>
       )}

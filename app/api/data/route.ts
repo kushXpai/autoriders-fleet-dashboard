@@ -89,16 +89,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // DataManager expects a `files` array — derive it from unique _fileName values (this page only)
-    const fileMap = new Map<string, { name: string; sha: string; download_url: string }>();
-    items.forEach((item) => {
-      const fn = (item as unknown as Record<string, string>)["_fileName"];
-      if (fn && !fileMap.has(fn)) {
-        fileMap.set(fn, { name: fn, sha: fn, download_url: "" });
-      }
-    });
-
-    return NextResponse.json({ data: items, files: [...fileMap.values()], nextCursor });
+    return NextResponse.json({ data: items, nextCursor });
   } catch (err) {
     console.error("Data fetch error:", err);
     return NextResponse.json(

@@ -104,34 +104,9 @@ export default function FileUpload({ onDataLoaded }: Props) {
       className="flex flex-1 flex-col items-center justify-center min-h-screen px-4 py-8"
       style={{ background: "var(--bg)" }}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-3 mb-8">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{
-            background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-            boxShadow: "0 0 20px rgba(59,130,246,0.4)",
-          }}
-        >
-          <svg viewBox="0 0 20 20" fill="none" width="20" height="20">
-            <path d="M2 15l4-8 4 3 3-6 5 11H2z" fill="white" opacity=".9" />
-          </svg>
-        </div>
-        <div>
-          <h1
-            className="syne text-2xl font-extrabold"
-            style={{
-              background: "linear-gradient(135deg, #0f1c2e, #3d5270)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            Autoriders Fleet
-          </h1>
-          <p className="text-xs" style={{ color: "var(--text3)" }}>
-            Fleet Intelligence Dashboard
-          </p>
-        </div>
+      <div className="mb-8 text-center">
+        <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>Autoriders Fleet</h1>
+        <p className="text-xs" style={{ color: "var(--text3)" }}>Fleet Intelligence Dashboard</p>
       </div>
 
       <div
@@ -139,8 +114,7 @@ export default function FileUpload({ onDataLoaded }: Props) {
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
-          boxShadow: "0 4px 24px rgba(37,99,235,0.07)",
-        }}
+                  }}
       >
         <h2 className="text-lg font-semibold mb-1 text-center" style={{ color: "var(--text)" }}>
           Upload Fleet Data
@@ -214,7 +188,7 @@ export default function FileUpload({ onDataLoaded }: Props) {
             style={{
               background: "var(--accent-glow)",
               color: "var(--accent2)",
-              border: "1px solid rgba(59,130,246,0.2)",
+              border: "1px solid rgba(44,95,158,0.2)",
             }}
           >
             <div className="spinner" />
@@ -227,13 +201,13 @@ export default function FileUpload({ onDataLoaded }: Props) {
           <div
             className="mb-5 rounded-xl px-4 py-4 text-sm text-left"
             style={{
-              background: "rgba(245,158,11,0.08)",
-              border: "1px solid rgba(245,158,11,0.3)",
+              background: "rgba(161,98,7,0.08)",
+              border: "1px solid rgba(161,98,7,0.3)",
               color: "#92400e",
             }}
           >
             <p className="font-semibold mb-2" style={{ color: "#b45309" }}>
-              ⚠ Data already exists for:
+              Data already exists for:
             </p>
             <ul className="mb-3 space-y-0.5">
               {duplicateLabels.map((d) => (
@@ -271,9 +245,9 @@ export default function FileUpload({ onDataLoaded }: Props) {
           <div
             className="mb-5 rounded-xl px-4 py-3 text-sm"
             style={{
-              background: "rgba(239,68,68,0.08)",
-              color: "#dc2626",
-              border: "1px solid rgba(239,68,68,0.2)",
+              background: "rgba(185,28,28,0.08)",
+              color: "#b91c1c",
+              border: "1px solid rgba(185,28,28,0.2)",
             }}
           >
             {error}
@@ -284,9 +258,9 @@ export default function FileUpload({ onDataLoaded }: Props) {
           <div
             className="mb-5 rounded-xl px-4 py-3 text-xs"
             style={{
-              background: "rgba(245,158,11,0.08)",
+              background: "rgba(161,98,7,0.08)",
               color: "#92400e",
-              border: "1px solid rgba(245,158,11,0.3)",
+              border: "1px solid rgba(161,98,7,0.3)",
             }}
           >
             {warnings.map((w, i) => (

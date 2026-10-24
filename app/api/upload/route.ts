@@ -10,6 +10,7 @@ import * as XLSX from "xlsx";
 export const maxDuration = 60;
 
 const BATCH_SIZE = 25;
+const WRITE_CONCURRENCY = 8;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 // Required headers must match exactly (case-sensitive) — a mismatched name means the
@@ -24,6 +25,34 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// "apr", "Sept", "APRIL" → "April"; anything else → null
+function canonicalMonth(raw: string): string | null {
+  const v = raw.trim().toLowerCase();
+  if (v.length < 3) return null;
+  return MONTHS.find((m) => m.toLowerCase() === v || (v.length === 3 && m.toLowerCase().startsWith(v)) || (v === "sept" && m === "September")) ?? null;
+}
+
+// Columns the dashboard does arithmetic on. Excel exports format these for display
+// ("1,23,456", "₹5,000", "(2,300)", "12.5%"), which parseFloat would silently misread.
+const NUMERIC_COLUMNS = new Set([
+  "Opening KMS", "Closing KMS", "Total KMS", "CD Kms", "SD Kms", "STR Kms", "Revenue KMS", "NRK",
+  "CD Revenue", "SD Revenue", "STR Revenue", "Total Revenue",
+  "Fuel Cost", "Repair Cost", "Chauffeur Cost", "EMI", "Total Cost", "Profit", "Profit %", "Year",
+]);
+
+function cleanNumber(val: string): string {
+  if (val === "" || val === "-" || val === "—") return "0";
+  const negative = /^\(.*\)$/.test(val) || /^[^0-9]*-/.test(val);
+  const digits = val.replace(/[^0-9.]/g, "");
+  if (digits === "" || isNaN(Number(digits))) return val;
+  return (negative ? "-" : "") + digits;
+}
+
 function normalizeRow(row: Record<string, unknown>): Record<string, string> {
   const clean: Record<string, string> = {};
   for (const rawKey in row) {
@@ -34,7 +63,9 @@ function normalizeRow(row: Record<string, unknown>): Record<string, string> {
     if (key === "Branch") {
       clean[key] = val.toLowerCase();
     } else if (key === "Month") {
-      clean[key] = titleCase(val);
+      clean[key] = canonicalMonth(val) ?? titleCase(val);
+    } else if (NUMERIC_COLUMNS.has(key)) {
+      clean[key] = cleanNumber(val);
     } else if (val !== "" && isNaN(Number(val))) {
       // Uppercase text to prevent model-name casing duplicates
       clean[key] = val.toUpperCase();
@@ -185,6 +216,14 @@ export async function POST(request: NextRequest) {
         }
         if (validRows.length === 0) continue;
 
+        const badMonths = [...new Set(validRows.map((r) => r["Month"]).filter((m) => !MONTHS.includes(m)))];
+        if (badMonths.length > 0) {
+          errors.push(
+            `"${file.name}": unrecognised Month value(s) ${badMonths.map((m) => `"${m}"`).join(", ")} — use full month names such as "April"`
+          );
+          continue;
+        }
+
         // A file may contain several branch/month/year combinations — handle each separately
         const groups = new Map<string, Record<string, string>[]>();
         for (const row of validRows) {
@@ -204,11 +243,6 @@ export async function POST(request: NextRequest) {
             duplicates.push(`${branch} — ${month} ${year}`);
             continue;
           }
-          if (exists) {
-            // Remove old records so corrected/removed vehicles don't leave ghosts behind
-            await deleteKeys(await fetchKeysForMonth(branch, month, year));
-          }
-
           // Guarantee unique sort keys — a duplicate key makes DynamoDB reject the whole batch
           const seen = new Set<string>();
           const items = groupRows.map((row, index) => {
@@ -219,17 +253,32 @@ export async function POST(request: NextRequest) {
             return { ...row, ...keys, sk, _uploadedAt: uploadedAt, _fileName: file.name };
           });
 
-          for (const batch of chunk(items, BATCH_SIZE)) {
-            const unprocessed = await batchWriteWithRetry(
-              TABLE_NAME,
-              batch.map((item) => ({ PutRequest: { Item: item } }))
+          // Write the new rows first (several batches at a time) …
+          let groupFailed = 0;
+          for (const wave of chunk(chunk(items, BATCH_SIZE), WRITE_CONCURRENCY)) {
+            const lefts = await Promise.all(
+              wave.map((batch) =>
+                batchWriteWithRetry(TABLE_NAME, batch.map((item) => ({ PutRequest: { Item: item } })))
+              )
             );
-            totalInserted += batch.length - unprocessed;
-            if (unprocessed > 0) {
-              errors.push(
-                `${unprocessed} items from "${file.name}" (${branch} ${month} ${year}) were not written — DynamoDB throttled them. Re-upload the file.`
-              );
-            }
+            wave.forEach((batch, i) => {
+              totalInserted += batch.length - lefts[i];
+              groupFailed += lefts[i];
+            });
+          }
+          if (groupFailed > 0) {
+            // … and keep the old records if the write was incomplete, so nothing is lost
+            errors.push(
+              `${groupFailed} items from "${file.name}" (${branch} ${month} ${year}) were not written — DynamoDB throttled them. Re-upload the file.`
+            );
+            continue;
+          }
+
+          // … then remove only the old rows that the new file no longer contains,
+          // so corrected/removed vehicles don't leave ghosts behind.
+          if (exists) {
+            const stale = (await fetchKeysForMonth(branch, month, year)).filter((k) => !seen.has(k.sk));
+            await deleteKeys(stale);
           }
         }
       } catch (fileErr) {

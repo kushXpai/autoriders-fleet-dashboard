@@ -47,7 +47,7 @@ function Sparkline({ values }: { values: number[] }) {
     })
     .join(" ");
   const first = values[0], last = values[values.length - 1];
-  const stroke = last > first ? "#10b981" : last < first ? "#ef4444" : "#94a3b8";
+  const stroke = last > first ? "#15803d" : last < first ? "#b91c1c" : "#94a3b8";
   const lx = W, ly = H - ((last - min) / range) * (H - 2) - 1;
   return (
     <svg width={W} height={H} style={{ display: "block", overflow: "visible" }}>
@@ -154,8 +154,8 @@ export default function PnLTable({ data }: { data: FleetRow[] }) {
 
   // #7: cell background for best/worst month column
   function cellBg(i: number) {
-    if (summaries.length > 1 && i === bestIdx) return "rgba(16,185,129,0.07)";
-    if (summaries.length > 1 && i === worstIdx) return "rgba(220,38,38,0.07)";
+    if (summaries.length > 1 && i === bestIdx) return "rgba(21,128,61,0.07)";
+    if (summaries.length > 1 && i === worstIdx) return "rgba(185,28,28,0.07)";
     return undefined;
   }
 
@@ -188,11 +188,11 @@ export default function PnLTable({ data }: { data: FleetRow[] }) {
             {summaries.length > 1 && (
               <span>
                 {" · "}
-                <span style={{ color: "#10b981", fontWeight: 600 }}>
+                <span style={{ color: "#15803d", fontWeight: 600 }}>
                   ↑ {summaries[bestIdx].month.substring(0, 3)}-{summaries[bestIdx].year.slice(2)} best
                 </span>
                 {" · "}
-                <span style={{ color: "#ef4444", fontWeight: 600 }}>
+                <span style={{ color: "#b91c1c", fontWeight: 600 }}>
                   ↓ {summaries[worstIdx].month.substring(0, 3)}-{summaries[worstIdx].year.slice(2)} worst
                 </span>
               </span>
@@ -215,18 +215,18 @@ export default function PnLTable({ data }: { data: FleetRow[] }) {
                   <th key={m.month + m.year} style={{
                     ...th,
                     background: i === bestIdx && summaries.length > 1
-                      ? "rgba(16,185,129,0.12)"
+                      ? "rgba(21,128,61,0.12)"
                       : i === worstIdx && summaries.length > 1
-                      ? "rgba(220,38,38,0.09)"
+                      ? "rgba(185,28,28,0.09)"
                       : "var(--surface2)",
                     color: i === bestIdx && summaries.length > 1
-                      ? "#059669"
+                      ? "#15803d"
                       : i === worstIdx && summaries.length > 1
-                      ? "#dc2626"
+                      ? "#b91c1c"
                       : "var(--text3)",
                   }}>
                     {m.month.substring(0, 3)}-{m.year.slice(2)}
-                    {summaries.length > 1 && i === bestIdx && <div style={{ fontSize: 8, marginTop: 1 }}>★ BEST</div>}
+                    {summaries.length > 1 && i === bestIdx && <div style={{ fontSize: 8, marginTop: 1 }}>BEST</div>}
                     {summaries.length > 1 && i === worstIdx && <div style={{ fontSize: 8, marginTop: 1 }}>▼ WORST</div>}
                   </th>
                 ))}

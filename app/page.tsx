@@ -3,6 +3,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import UserMenu from "./components/UserMenu";
 import FileUpload from "./components/FileUpload";
 import FilterBar from "./components/FilterBar";
@@ -12,15 +13,20 @@ import Charts from "./components/Charts";
 import DecisionPanel from "./components/DecisionPanel";
 import VehicleTable from "./components/VehicleTable";
 import PnLTable from "./components/PnLTable";
-import RevenueIntelligence from "./components/RevenueIntelligence";
 import type { RevenueRow } from "./lib/types";
 import type { FleetRow } from "./lib/types";
 import { num } from "./lib/dataUtils";
 import { getStoredUser } from "./lib/auth";
-import { postFleetFiles, readJson, fetchAllFleetData } from "./lib/api";
+import { postFleetFiles, readJson, fetchAllFleetData, fetchAllRevenue } from "./lib/api";
 import VehicleTrend from "./components/VehicleTrend";
-import ManagementReport from "./components/ManagementReport";
 import DeleteDataPanel from "./components/DeleteDataPanel";
+
+// Heavy modules are split out of the main bundle and only fetched on first visit.
+const SectionLoading = () => (
+  <div className="text-sm font-medium py-10 text-center" style={{ color: "var(--text3)" }}>Loading…</div>
+);
+const RevenueIntelligence = dynamic(() => import("./components/RevenueIntelligence"), { loading: SectionLoading });
+const ManagementReport = dynamic(() => import("./components/ManagementReport"), { loading: SectionLoading });
 
 const MONTH_ORDER = [
   "April", "May", "June", "July", "August", "September",
@@ -55,7 +61,14 @@ export default function Home() {
   const [tripsUploading, setTripsUploading] = useState(false);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
-  const [activeSection, setActiveSection] = useState<"fleet" | "revenue" | "management">("fleet");
+  type Section = "fleet" | "revenue" | "management";
+  const [activeSection, setActiveSectionRaw] = useState<Section>("fleet");
+  // Sections stay mounted (hidden) once visited, so switching back is instant.
+  const [visited, setVisited] = useState<Set<Section>>(() => new Set(["fleet"]));
+  const setActiveSection = useCallback((s: Section) => {
+    setActiveSectionRaw(s);
+    setVisited((prev) => (prev.has(s) ? prev : new Set(prev).add(s)));
+  }, []);
 
   // ── Role check ─────────────────────────────────────────────────────────────
   const storedUser = getStoredUser();
@@ -82,12 +95,12 @@ export default function Home() {
   const tripsLoading = activeSection === "revenue" && isDeveloper && !tripsLoaded;
   useEffect(() => {
     if (activeSection !== "revenue" || !isDeveloper || tripsLoaded) return;
-    fetch("/api/revenue")
-      .then((r) => readJson<{ data?: RevenueRow[]; error?: string }>(r))
-      .then(({ data }) => {
-        if (data) setTrips(data);
+    fetchAllRevenue()
+      .then(setTrips)
+      .catch((err) => {
+        console.error(err);
+        alert("Could not load revenue data: " + (err as Error).message);
       })
-      .catch(console.error)
       .finally(() => setTripsLoaded(true));
   }, [activeSection, isDeveloper, tripsLoaded]);
 
@@ -200,9 +213,7 @@ export default function Home() {
         return;
       }
       // Refresh revenue data
-      const dataRes = await fetch("/api/revenue");
-      const { data } = await readJson<{ data?: RevenueRow[] }>(dataRes);
-      if (data) setTrips(data);
+      setTrips(await fetchAllRevenue());
     } catch (err) {
       alert("Revenue upload error: " + (err as Error).message);
     } finally {
@@ -228,7 +239,7 @@ export default function Home() {
           <button
             onClick={() => window.location.reload()}
             className="text-xs font-semibold px-4 py-2 rounded-lg"
-            style={{ color: "var(--accent2)", background: "var(--accent-glow)", border: "1px solid rgba(59,130,246,0.2)" }}
+            style={{ color: "var(--accent2)", background: "var(--accent-glow)", border: "1px solid rgba(44,95,158,0.2)" }}
           >
             Retry
           </button>
@@ -248,9 +259,8 @@ export default function Home() {
       <header
         className="flex items-center justify-between px-4 md:px-8 sticky top-0 z-50 gap-2"
         style={{
-          height: 62,
-          background: "rgba(255,255,255,0.88)",
-          backdropFilter: "blur(20px)",
+          height: 56,
+          background: "var(--surface)",
           borderBottom: "1px solid var(--border)",
         }}
       >
@@ -266,19 +276,11 @@ export default function Home() {
               <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <div className="hidden sm:flex w-12 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Image src="/autoriders.webp" alt="Autoriders Logo" width={112} height={84} priority className="w-28 h-auto object-contain" />
+          <div className="hidden sm:flex items-center flex-shrink-0">
+            <Image src="/autoriders.webp" alt="Autoriders Logo" width={112} height={84} priority className="h-7 w-auto object-contain" />
           </div>
           <div className="min-w-0">
-            <h1
-              className="syne text-base md:text-lg font-extrabold truncate"
-              style={{
-                background: "linear-gradient(135deg, #0f1c2e, #3d5270)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                letterSpacing: "-0.3px",
-              }}
-            >
+            <h1 className="text-base font-semibold truncate" style={{ color: "var(--text)" }}>
               Autoriders Fleet
             </h1>
             <div className="text-xs hidden sm:block" style={{ color: "var(--text3)" }}>Fleet Intelligence Dashboard</div>
@@ -292,8 +294,8 @@ export default function Home() {
               className="cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
               style={{
                 color: addingMonth ? "var(--text3)" : "var(--accent2)",
-                background: "var(--accent-glow)",
-                border: "1px solid rgba(59,130,246,0.2)",
+                background: "var(--surface)",
+                border: "1px solid var(--border2)",
                 pointerEvents: addingMonth ? "none" : "auto",
               }}
             >
@@ -318,90 +320,78 @@ export default function Home() {
       <main className="flex flex-1 min-w-0">
         {/* Sidebar */}
         {navOpen && (
-          <div className="md:hidden fixed inset-0 z-[60]" style={{ background: "rgba(15,23,42,0.45)" }} onClick={() => setNavOpen(false)} />
+          <div className="md:hidden fixed inset-0 z-[60]" style={{ background: "rgba(17,24,39,0.4)" }} onClick={() => setNavOpen(false)} />
         )}
-        <aside className={`side-nav ${navOpen ? "open" : ""} w-64 border-r flex-shrink-0`} style={{ background: "#fff", borderColor: "var(--border)" }}>
-          <div className="p-4">
-            <div className="text-xs uppercase font-semibold mb-4" style={{ color: "var(--text3)" }}>
-              Intelligence Modules
-            </div>
-
-            <button
-              onClick={() => { setActiveSection("fleet"); setNavOpen(false); }}
-              className="w-full text-left px-4 py-3 rounded-xl mb-2 transition"
-              style={{
-                background: activeSection === "fleet" ? "var(--accent-glow)" : "transparent",
-                color: activeSection === "fleet" ? "var(--accent2)" : "var(--text)",
-              }}
-            >
-              🚛 Fleet Intelligence
-            </button>
-
-            {isDeveloper && (
-            <button
-              onClick={() => { setActiveSection("revenue"); setNavOpen(false); }}
-              className="w-full text-left px-4 py-3 rounded-xl mb-2 transition"
-              style={{
-                background: activeSection === "revenue" ? "var(--accent-glow)" : "transparent",
-                color: activeSection === "revenue" ? "var(--accent2)" : "var(--text)",
-              }}
-            >
-              💰 Revenue Intelligence
-            </button>
-            )}
-
-            {canSeeManagement && (
-            <button
-              onClick={() => { setActiveSection("management"); setNavOpen(false); }}
-              className="w-full text-left px-4 py-3 rounded-xl transition"
-              style={{
-                background: activeSection === "management" ? "var(--accent-glow)" : "transparent",
-                color: activeSection === "management" ? "var(--accent2)" : "var(--text)",
-              }}
-            >
-              📋 Management Report
-            </button>
-            )}
-          </div>
+        <aside className={`side-nav ${navOpen ? "open" : ""} w-56 border-r flex-shrink-0`} style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+          <nav className="p-3 flex flex-col gap-0.5">
+            {([
+              ["fleet", "Fleet Intelligence", true],
+              ["revenue", "Revenue Intelligence", isDeveloper],
+              ["management", "Management Report", canSeeManagement],
+            ] as [Section, string, boolean][])
+              .filter(([, , show]) => show)
+              .map(([key, label]) => {
+                const active = activeSection === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => { setActiveSection(key); setNavOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
+                    style={{
+                      background: active ? "var(--surface2)" : "transparent",
+                      color: active ? "var(--text)" : "var(--text2)",
+                      fontWeight: active ? 600 : 500,
+                      borderLeft: `2px solid ${active ? "var(--accent)" : "transparent"}`,
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+          </nav>
         </aside>
 
         {/* Content Area */}
-        <div className="flex-1 px-4 md:px-8 py-6 pb-10 fade-in main-pad" style={{ minWidth: 0, overflow: "hidden" }}>
-          {activeSection === "management" && canSeeManagement ? (
-            <ManagementReport allData={allData} />
-          ) : activeSection === "fleet" || !isDeveloper ? (
-            <>
-              <FilterBar
-                branches={branches}
-                financialYears={financialYears}
-                months={months}
-                models={models}
-                filterBranch={filterBranch}
-                filterFY={filterFY}
-                filterMonth={filterMonth}
-                filterModel={filterModel}
-                filterStatus={filterStatus}
-                totalCount={filteredData.length}
-                onChange={handleFilterChange}
-              />
-              <KpiGrid data={filteredData} />
-              <InsightStrip data={filteredData} />
-              <PnLTable data={filteredData} />
-              <Charts data={filteredData} />
-              <DecisionPanel data={filteredData} />
-              <VehicleTrend data={filteredData} />
-              <VehicleTable data={filteredData} />
-              {canUpload && (
-                <DeleteDataPanel allData={allData} onDeleted={handleDeleted} />
-              )}
-            </>
-          ) : (
-            <RevenueIntelligence
-              trips={trips}
-              loading={tripsLoading}
-              onUpload={handleRevenueUpload}
-              uploading={tripsUploading}
+        <div className="flex-1 px-4 md:px-8 py-6 pb-10 main-pad" style={{ minWidth: 0, overflow: "hidden" }}>
+          {canSeeManagement && visited.has("management") && (
+            <div hidden={activeSection !== "management"}>
+              <ManagementReport allData={allData} />
+            </div>
+          )}
+          <div hidden={activeSection !== "fleet"}>
+            <FilterBar
+              branches={branches}
+              financialYears={financialYears}
+              months={months}
+              models={models}
+              filterBranch={filterBranch}
+              filterFY={filterFY}
+              filterMonth={filterMonth}
+              filterModel={filterModel}
+              filterStatus={filterStatus}
+              totalCount={filteredData.length}
+              onChange={handleFilterChange}
             />
+            <KpiGrid data={filteredData} />
+            <InsightStrip data={filteredData} />
+            <PnLTable data={filteredData} />
+            <Charts data={filteredData} />
+            <DecisionPanel data={filteredData} />
+            <VehicleTrend data={filteredData} />
+            <VehicleTable data={filteredData} />
+            {canUpload && (
+              <DeleteDataPanel allData={allData} onDeleted={handleDeleted} />
+            )}
+          </div>
+          {isDeveloper && visited.has("revenue") && (
+            <div hidden={activeSection !== "revenue"}>
+              <RevenueIntelligence
+                trips={trips}
+                loading={tripsLoading}
+                onUpload={handleRevenueUpload}
+                uploading={tripsUploading}
+              />
+            </div>
           )}
         </div>
       </main>

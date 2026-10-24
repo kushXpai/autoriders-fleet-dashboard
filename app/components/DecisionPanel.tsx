@@ -47,7 +47,7 @@ function ScoringTooltip({ r, verdict, avgProfit, avgMargin, avgRepair }: {
         onMouseLeave={() => setShow(false)}
         style={{ fontSize: 10, color: "var(--text3)", background: "none", border: "none", cursor: "help", padding: "0 2px" }}
       >
-        ⓘ why
+        why
       </button>
       {show && (
         <div style={{
@@ -59,7 +59,7 @@ function ScoringTooltip({ r, verdict, avgProfit, avgMargin, avgRepair }: {
           <div style={{ fontSize: 10, fontWeight: 700, color: "#f1f5f9", marginBottom: 5 }}>Scoring factors</div>
           {lines.map((l, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 5, marginBottom: 3 }}>
-              <span style={{ color: l.positive ? "#34d399" : "#f87171", fontSize: 9, flexShrink: 0, marginTop: 1 }}>
+              <span style={{ color: l.positive ? "#4ade80" : "#b91c1c", fontSize: 9, flexShrink: 0, marginTop: 1 }}>
                 {l.positive ? "✓" : "✗"}
               </span>
               <span style={{ fontSize: 10, color: "#94a3b8", lineHeight: 1.4 }}>{l.label}</span>
@@ -77,15 +77,15 @@ function ScoringTooltip({ r, verdict, avgProfit, avgMargin, avgRepair }: {
 function VehicleCard({ r, verdict, avgProfit, avgMargin, avgRepair }: {
   r: ScoredRow; verdict: Verdict; avgProfit: number; avgMargin: number; avgRepair: number;
 }) {
-  const pColor = r._prof >= 0 ? "#059669" : "#dc2626";
+  const pColor = r._prof >= 0 ? "#15803d" : "#b91c1c";
   const mPct = (r._margin * 100).toFixed(1);
 
   const vs =
     verdict === "keep"
-      ? { bg: "rgba(5,150,105,0.1)", color: "#059669", border: "1px solid rgba(5,150,105,0.3)" }
+      ? { bg: "rgba(21,128,61,0.1)", color: "#15803d", border: "1px solid rgba(21,128,61,0.3)" }
       : verdict === "sell"
-      ? { bg: "rgba(220,38,38,0.1)", color: "#dc2626", border: "1px solid rgba(220,38,38,0.3)" }
-      : { bg: "rgba(217,119,6,0.1)", color: "#d97706", border: "1px solid rgba(217,119,6,0.3)" };
+      ? { bg: "rgba(185,28,28,0.1)", color: "#b91c1c", border: "1px solid rgba(185,28,28,0.3)" }
+      : { bg: "rgba(161,98,7,0.1)", color: "#a16207", border: "1px solid rgba(161,98,7,0.3)" };
 
   const vl = verdict === "keep" ? "Keep" : verdict === "sell" ? "Sell" : "Watch";
 
@@ -109,7 +109,7 @@ function VehicleCard({ r, verdict, avgProfit, avgMargin, avgRepair }: {
   return (
     <div className="rounded-xl p-3" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
       <div className="flex justify-between items-center mb-2">
-        <span className="font-mono font-bold text-xs" style={{ color: "#0f1c2e" }}>{r["Registration Number"] || "—"}</span>
+        <span className="font-mono font-bold text-xs" style={{ color: "#111827" }}>{r["Registration Number"] || "—"}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           {/* #14 tooltip */}
           <ScoringTooltip r={r} verdict={verdict} avgProfit={avgProfit} avgMargin={avgMargin} avgRepair={avgRepair} />
@@ -118,13 +118,13 @@ function VehicleCard({ r, verdict, avgProfit, avgMargin, avgRepair }: {
       </div>
       <div className="flex gap-1 flex-wrap mb-2">
         <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent-glow)", color: "var(--accent2)" }}>{r.Model || "—"}</span>
-        <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ color: "var(--text3)", background: "var(--surface)", border: "1px solid var(--border)" }}>{r._kms.toLocaleString("en-IN")} km</span>
+        <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ color: "var(--text3)", background: "var(--surface)", border: "1px solid var(--border)" }}>{r._kms.toLocaleString("en-IN")} km/mo</span>
       </div>
       <div className="grid grid-cols-3 gap-1 mb-1.5">
         {[
-          { val: `₹${(r._prof / 1e3).toFixed(0)}K`, color: pColor, label: "Profit" },
-          { val: `${mPct}%`, color: parseFloat(mPct) >= 20 ? "#059669" : parseFloat(mPct) >= 0 ? "#2563eb" : "#dc2626", label: "Margin" },
-          { val: `₹${(r._repair / 1e3).toFixed(0)}K`, color: r._repair > avgRepair * 1.5 ? "#dc2626" : "#059669", label: "Repair" },
+          { val: `₹${(r._prof / 1e3).toFixed(0)}K`, color: pColor, label: "Profit/mo" },
+          { val: `${mPct}%`, color: parseFloat(mPct) >= 20 ? "#15803d" : parseFloat(mPct) >= 0 ? "#2c5f9e" : "#b91c1c", label: "Margin" },
+          { val: `₹${(r._repair / 1e3).toFixed(0)}K`, color: r._repair > avgRepair * 1.5 ? "#b91c1c" : "#15803d", label: "Repair/mo" },
         ].map(cell => (
           <div key={cell.label} className="text-center rounded-lg py-1" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div className="text-xs font-bold" style={{ color: cell.color }}>{cell.val}</div>
@@ -180,41 +180,55 @@ export default function DecisionPanel({ data }: { data: FleetRow[] }) {
     return data.filter(r => r.Branch === filterBranch);
   }, [data, filterBranch]);
 
-  const active = filteredData.filter(r => num(r["Total Revenue"]) > 0);
+  // One entry per vehicle: monthly averages over the months it actually earned,
+  // so a single bad month or a short history doesn't decide a keep/sell call.
+  const perVehicle = useMemo(() => {
+    const by = new Map<string, { row: FleetRow; months: number; rev: number; prof: number; repair: number; kms: number; emi: number }>();
+    filteredData.forEach(r => {
+      const reg = r["Registration Number"];
+      if (!reg || !(num(r["Total Revenue"]) > 0)) return;
+      const e = by.get(reg) ?? { row: r, months: 0, rev: 0, prof: 0, repair: 0, kms: 0, emi: 0 };
+      e.months += 1;
+      e.rev += num(r["Total Revenue"]);
+      e.prof += num(r["Profit"]);
+      e.repair += num(r["Repair Cost"]);
+      e.kms += num(r["Total KMS"]);
+      e.emi += num(r.EMI);
+      by.set(reg, e);
+    });
+    return [...by.values()];
+  }, [filteredData]);
 
-  if (!active.length) {
+  if (!perVehicle.length) {
     return (
-      <div className="rounded-2xl p-5 mb-3.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <div className="rounded-lg p-5 mb-3" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
         <p className="text-sm" style={{ color: "var(--text3)" }}>No active vehicles to analyse.</p>
       </div>
     );
   }
 
-  const avgProfit = active.reduce((s, r) => s + num(r["Profit"]), 0) / active.length;
-  const avgMargin = active.reduce((s, r) => {
-    const rev = num(r["Total Revenue"]);
-    return s + (rev > 0 ? num(r["Profit"]) / rev : 0);
-  }, 0) / active.length;
-  const avgRepair = active.reduce((s, r) => s + num(r["Repair Cost"]), 0) / active.length;
+  const n = perVehicle.length;
+  const avgProfit = perVehicle.reduce((s, v) => s + v.prof / v.months, 0) / n;
+  const avgMargin = perVehicle.reduce((s, v) => s + (v.rev > 0 ? v.prof / v.rev : 0), 0) / n;
+  const avgRepair = perVehicle.reduce((s, v) => s + v.repair / v.months, 0) / n;
 
-  const scored: ScoredRow[] = active.map(r => {
-    const prof = num(r["Profit"]), rev = num(r["Total Revenue"]), repair = num(r["Repair Cost"]);
-    const emi = num(r.EMI);
-    const kms = num(r["Total KMS"]);
-    const margin = rev > 0 ? prof / rev : 0;
+  const scored: ScoredRow[] = perVehicle.map(v => {
+    const prof = v.prof / v.months, repair = v.repair / v.months, kms = v.kms / v.months;
+    const margin = v.rev > 0 ? v.prof / v.rev : 0;
     const score =
       (prof / Math.max(avgProfit, 1)) * 40 +
       (margin / Math.max(avgMargin, 0.001)) * 30 -
       (repair / Math.max(avgRepair, 1)) * 15 -
       (kms < 500 ? 15 : 0);
-    return { ...r, _prof: prof, _rev: rev, _repair: repair, _margin: margin, _kms: kms, _emi: emi, _score: score };
+    return { ...v.row, _prof: prof, _rev: v.rev / v.months, _repair: repair, _margin: margin, _kms: kms, _emi: v.emi, _score: score };
   });
 
   const byScore = [...scored].sort((a, b) => b._score - a._score);
   const top = byScore.slice(0, 8);
   const sellCandidates = scored.filter(r => r._prof < 0 && r._emi === 0)
     .sort((a, b) => a._score - b._score).slice(0, 8);
-  const watch = scored.filter(r => r._margin > 0 && r._margin < avgMargin * 0.65 && r._repair > avgRepair * 1.4).slice(0, 8);
+  const watch = scored.filter(r => r._margin > 0 && r._margin < avgMargin * 0.65 && r._repair > avgRepair * 1.4)
+    .sort((a, b) => a._score - b._score).slice(0, 8);
 
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -241,7 +255,7 @@ export default function DecisionPanel({ data }: { data: FleetRow[] }) {
       <div className="flex flex-col gap-2">
         {items.length ? (
           items.map((r, i) => (
-            <VehicleCard key={`${r["Registration Number"]}_${r.Month}_${r.Year}_${i}`} r={r} verdict={verdict}
+            <VehicleCard key={r["Registration Number"] || i} r={r} verdict={verdict}
               avgProfit={avgProfit} avgMargin={avgMargin} avgRepair={avgRepair} />
           ))
         ) : (
@@ -268,7 +282,7 @@ export default function DecisionPanel({ data }: { data: FleetRow[] }) {
             Vehicle Intelligence — Keep vs Sell Advisor
           </div>
           <div className="text-xs mt-0.5" style={{ color: "var(--text3)" }}>
-            Data-driven signals · hover ⓘ on any vehicle to see scoring factors
+            Each vehicle scored once, on its monthly averages for the selected period · hover why for the factors
           </div>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
@@ -286,17 +300,17 @@ export default function DecisionPanel({ data }: { data: FleetRow[] }) {
               <option key={b} value={b}>{b === "all" ? "All branches" : cap(b)}</option>
             ))}
           </select>
-          <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "var(--green-dim)", color: "var(--green)", border: "1px solid rgba(16,185,129,0.2)" }}>Keep</span>
-          <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "rgba(220,38,38,0.1)", color: "#dc2626", border: "1px solid rgba(220,38,38,0.2)" }}>Consider Selling</span>
-          <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "rgba(217,119,6,0.1)", color: "#d97706", border: "1px solid rgba(217,119,6,0.2)" }}>Watch</span>
+          <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "var(--green-dim)", color: "var(--green)", border: "1px solid rgba(21,128,61,0.2)" }}>Keep</span>
+          <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "rgba(185,28,28,0.1)", color: "#b91c1c", border: "1px solid rgba(185,28,28,0.2)" }}>Consider Selling</span>
+          <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: "rgba(161,98,7,0.1)", color: "#a16207", border: "1px solid rgba(161,98,7,0.2)" }}>Watch</span>
         </div>
       </div>
 
       <div className="grid gap-3.5 mt-4" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-        {col(badge(`Keep — Top ${top.length} Performers`, "#059669", "rgba(5,150,105,0.08)", "rgba(5,150,105,0.2)"), top, "keep", "keep")}
-        {col(badge(`Consider Selling — Loss + No EMI (${sellCandidates.length})`, "#dc2626", "rgba(220,38,38,0.08)", "rgba(220,38,38,0.2)"), sellCandidates, "sell", "sell",
+        {col(badge(`Keep — Top ${top.length} Performers`, "#15803d", "rgba(21,128,61,0.08)", "rgba(21,128,61,0.2)"), top, "keep", "keep")}
+        {col(badge(`Consider Selling — Loss + No EMI (${sellCandidates.length})`, "#b91c1c", "rgba(185,28,28,0.08)", "rgba(185,28,28,0.2)"), sellCandidates, "sell", "sell",
           "No sell candidates — all loss-making vehicles still have EMI")}
-        {col(badge(`Watch — High Repair + Low Margin (${watch.length})`, "#d97706", "rgba(217,119,6,0.08)", "rgba(217,119,6,0.2)"),
+        {col(badge(`Watch — High Repair + Low Margin (${watch.length})`, "#a16207", "rgba(161,98,7,0.08)", "rgba(161,98,7,0.2)"),
           watch, "watch", "watch", "No vehicles flagged — fleet is healthy")}
       </div>
     </div>

@@ -1,7 +1,7 @@
 // app/components/VehicleTable.tsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 import type { FleetRow } from "../lib/types";
 import { num } from "../lib/dataUtils";
 
@@ -125,7 +125,7 @@ function ExpandedRows({ rows }: { rows: FleetRow[] }) {
                     parseFloat(margin) >= 30
                       ? { background: "var(--green-dim)", color: "var(--green)" }
                       : parseFloat(margin) < 0
-                      ? { background: "var(--red-dim)", color: "#fca5a5" }
+                      ? { background: "var(--red-dim)", color: "#b91c1c" }
                       : { background: "var(--amber-dim)", color: "var(--amber)" }
                   }
                 >
@@ -286,15 +286,14 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
               const isOpen = expanded.has(r.reg);
               // #16: red tint for unprofitable vehicles
               const isUnprofitable = r.totalRevenue > 0 && r.totalProfit < 0;
-              const rowBg = isOpen ? "var(--accent-glow)" : isUnprofitable ? "rgba(220,38,38,0.04)" : "transparent";
+              const rowBg = isOpen ? "var(--accent-glow)" : isUnprofitable ? "rgba(185,28,28,0.04)" : "transparent";
 
               return (
-                <>
+                <Fragment key={r.reg}>
                   <tr
-                    key={r.reg}
                     style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", background: rowBg }}
                     onClick={() => toggleExpand(r.reg)}
-                    onMouseEnter={e => (e.currentTarget.style.background = isUnprofitable ? "rgba(220,38,38,0.08)" : "var(--surface2)")}
+                    onMouseEnter={e => (e.currentTarget.style.background = isUnprofitable ? "rgba(185,28,28,0.08)" : "var(--surface2)")}
                     onMouseLeave={e => (e.currentTarget.style.background = rowBg)}
                   >
                     <td className="px-3.5 py-2.5 text-xs font-mono font-bold" style={{ color: "var(--text)" }}>
@@ -302,7 +301,7 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
                       {r.reg}
                       {/* #16: loss flag */}
                       {isUnprofitable && (
-                        <span style={{ marginLeft: 5, fontSize: 9, color: "#dc2626", background: "rgba(220,38,38,0.1)", padding: "1px 5px", borderRadius: 4, fontFamily: "inherit", fontWeight: 700 }}>
+                        <span style={{ marginLeft: 5, fontSize: 9, color: "#b91c1c", background: "rgba(185,28,28,0.1)", padding: "1px 5px", borderRadius: 4, fontFamily: "inherit", fontWeight: 700 }}>
                           LOSS
                         </span>
                       )}
@@ -346,7 +345,7 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
                             margin >= 30
                               ? { background: "var(--green-dim)", color: "var(--green)" }
                               : margin < 0
-                              ? { background: "var(--red-dim)", color: "#fca5a5" }
+                              ? { background: "var(--red-dim)", color: "#b91c1c" }
                               : { background: "var(--amber-dim)", color: "var(--amber)" }
                           }
                         >
@@ -356,7 +355,7 @@ export default function VehicleTable({ data }: { data: FleetRow[] }) {
                     </td>
                   </tr>
                   {isOpen && <ExpandedRows rows={r.rows} />}
-                </>
+                </Fragment>
               );
             })}
           </tbody>

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { CATEGORICAL } from "../lib/palette";
 import type { RevenueRow } from "../lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -51,21 +52,21 @@ function parseHour(s?: string): number | null {
 }
 
 const OWNERSHIP_COLORS: Record<string, string> = {
-    SELF: "#3b82f6",
-    SPOT: "#f59e0b",
-    ALLOTTED: "#10b981",
+    SELF: "#2c5f9e",
+    SPOT: "#a16207",
+    ALLOTTED: "#15803d",
 };
 
 const OWNERSHIP_BG: Record<string, string> = {
-    SELF: "rgba(59,130,246,0.1)",
-    SPOT: "rgba(245,158,11,0.1)",
-    ALLOTTED: "rgba(16,185,129,0.1)",
+    SELF: "rgba(44,95,158,0.1)",
+    SPOT: "rgba(161,98,7,0.1)",
+    ALLOTTED: "rgba(21,128,61,0.1)",
 };
 
 const STATUS_COLOR: Record<string, string> = {
-    Success: "#10b981",
+    Success: "#15803d",
     NoAction: "#94a3b8",
-    Pending: "#f59e0b",
+    Pending: "#a16207",
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -86,24 +87,23 @@ function KpiCard({
             style={{
                 background: "#fff",
                 border: "1px solid var(--border)",
-                borderRadius: 16,
-                padding: "20px 24px",
-                flex: 1,
+                borderRadius: 8,
+                padding: "14px 16px",
                 minWidth: 0,
             }}
         >
             <div
-                style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
+                style={{ fontSize: 12, fontWeight: 500, color: "var(--text3)", marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             >
                 {label}
             </div>
             <div
-                style={{ fontSize: 26, fontWeight: 800, color: accent || "var(--text)", letterSpacing: "-0.5px", lineHeight: 1.1 }}
+                style={{ fontSize: "clamp(18px, 5vw, 24px)", fontWeight: 600, color: accent || "var(--text)", letterSpacing: "-0.4px", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             >
                 {value}
             </div>
             {sub && (
-                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 6 }}>
                     {sub}
                 </div>
             )}
@@ -193,7 +193,7 @@ function SvgBarChart({
     height?: number;
     colorFn?: (i: number, label?: string) => string;
 }) {
-    const BAR_COLORS = ["#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#14b8a6", "#f97316", "#0ea5e9", "#a855f7"];
+    const BAR_COLORS = CATEGORICAL;
     if (!data.length) return null;
     const max = Math.max(...data.map((d) => d.value), 1);
     const W = 500;
@@ -276,10 +276,10 @@ function MultiBarChart({
     const bW = Math.max(6, (groupW * 0.7) / 4);
     const gapInGroup = Math.max(1, (groupW * 0.7 - bW * 4) / 3);
     const series = [
-        { key: "self" as const, color: "#3b82f6", label: "SELF" },
-        { key: "spot" as const, color: "#f59e0b", label: "SPOT" },
-        { key: "allotted" as const, color: "#10b981", label: "ALLOTTED" },
-        { key: "total" as const, color: "#6366f1", label: "TOTAL" },
+        { key: "self" as const, color: "#2c5f9e", label: "SELF" },
+        { key: "spot" as const, color: "#a16207", label: "SPOT" },
+        { key: "allotted" as const, color: "#15803d", label: "ALLOTTED" },
+        { key: "total" as const, color: "#64748b", label: "TOTAL" },
     ];
     const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ y: padT + chartH * (1 - f), val: maxVal * f }));
 
@@ -375,8 +375,8 @@ function LineChart({
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
             <defs>
                 <linearGradient id="lineAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.18} />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.01} />
+                    <stop offset="0%" stopColor="#2c5f9e" stopOpacity={0.18} />
+                    <stop offset="100%" stopColor="#2c5f9e" stopOpacity={0.01} />
                 </linearGradient>
             </defs>
             {ticks.map((t, i) => (
@@ -391,7 +391,7 @@ function LineChart({
             {/* Area fill */}
             <path d={areaD} fill="url(#lineAreaGrad)" />
             {/* Line */}
-            <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+            <path d={pathD} fill="none" stroke="#2c5f9e" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
             {/* Points */}
             {pts.map((p, i) => (
                 <g key={i}>
@@ -400,7 +400,7 @@ function LineChart({
                         cy={p.y}
                         r={5}
                         fill="#fff"
-                        stroke="#3b82f6"
+                        stroke="#2c5f9e"
                         strokeWidth={2}
                         style={{ cursor: onClick ? "pointer" : "default" }}
                         onClick={(e) => {
@@ -440,7 +440,7 @@ function BarList({
     colorFn?: (i: number) => string;
 }) {
     const max = Math.max(...items.map((x) => x.value), 1);
-    const COLORS = ["#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#14b8a6", "#f97316", "#0ea5e9", "#a855f7"];
+    const COLORS = CATEGORICAL;
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {items.map((item, i) => (
@@ -571,7 +571,7 @@ function DateRangePopup({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: "rgba(15,23,42,0.45)",
+                background: "rgba(17,24,39,0.45)",
                 backdropFilter: "blur(2px)",
             }}
             onClick={onClose}
@@ -579,7 +579,7 @@ function DateRangePopup({
             <div
                 style={{
                     background: "#fff",
-                    borderRadius: 20,
+                    borderRadius: 8,
                     boxShadow: "0 32px 80px rgba(0,0,0,0.22)",
                     padding: "28px 32px",
                     width: "min(700px, 95vw)",
@@ -589,7 +589,7 @@ function DateRangePopup({
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text)", marginBottom: 20 }}>📅 Select Date Range</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", marginBottom: 20 }}>Select Date Range</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                     {presets.map((p) => (
                         <button
@@ -598,9 +598,9 @@ function DateRangePopup({
                             style={{
                                 padding: "10px 16px",
                                 borderRadius: 10,
-                                border: selected === p ? "2px solid #3b82f6" : "1px solid var(--border)",
-                                background: selected === p ? "rgba(59,130,246,0.08)" : "#fff",
-                                color: selected === p ? "#3b82f6" : "var(--text)",
+                                border: selected === p ? "2px solid #2c5f9e" : "1px solid var(--border)",
+                                background: selected === p ? "rgba(44,95,158,0.08)" : "#fff",
+                                color: selected === p ? "#2c5f9e" : "var(--text)",
                                 fontWeight: selected === p ? 700 : 500,
                                 fontSize: 13,
                                 cursor: "pointer",
@@ -643,7 +643,7 @@ function DateRangePopup({
                     </button>
                     <button
                         onClick={handleApply}
-                        style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: "#3b82f6", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                        style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: "#2c5f9e", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
                     >
                         Apply
                     </button>
@@ -713,7 +713,7 @@ function CorporateDetailPopup({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: "rgba(15,23,42,0.5)",
+                background: "rgba(17,24,39,0.5)",
                 backdropFilter: "blur(3px)",
             }}
             onClick={onClose}
@@ -721,7 +721,7 @@ function CorporateDetailPopup({
             <div
                 style={{
                     background: "#fff",
-                    borderRadius: 20,
+                    borderRadius: 8,
                     boxShadow: "0 32px 80px rgba(0,0,0,0.22)",
                     padding: "28px 32px",
                     width: "min(700px, 95vw)",
@@ -734,28 +734,28 @@ function CorporateDetailPopup({
                 {/* Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                     <div>
-                        <div style={{ fontSize: 17, fontWeight: 800, color: "var(--text)", marginBottom: 3 }}>{corporate}</div>
+                        <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text)", marginBottom: 3 }}>{corporate}</div>
                         <div style={{ fontSize: 12, color: "var(--text3)" }}>{corpTrips.length} trips · {fmtCr(totalRevenue)} total revenue</div>
                     </div>
                     <button
                         onClick={onClose}
                         style={{ padding: "6px 14px", borderRadius: 9, border: "1px solid var(--border)", background: "#fff", color: "var(--text3)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
                     >
-                        ✕ Close
+                        Close
                     </button>
                 </div>
 
                 {/* KPIs */}
                 <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
                     {[
-                        { label: "Total Revenue", value: fmtCr(totalRevenue), accent: "#3b82f6" },
-                        { label: "Total Trips", value: corpTrips.length.toString(), accent: "#6366f1" },
-                        { label: "Success Rate", value: `${corpTrips.length ? Math.round((successTrips / corpTrips.length) * 100) : 0}%`, accent: "#10b981" },
-                        { label: "Total Kms", value: `${(totalKms / 1000).toFixed(1)}K`, accent: "#f59e0b" },
+                        { label: "Total Revenue", value: fmtCr(totalRevenue), accent: "#2c5f9e" },
+                        { label: "Total Trips", value: corpTrips.length.toString(), accent: "#64748b" },
+                        { label: "Success Rate", value: `${corpTrips.length ? Math.round((successTrips / corpTrips.length) * 100) : 0}%`, accent: "#15803d" },
+                        { label: "Total Kms", value: `${(totalKms / 1000).toFixed(1)}K`, accent: "#a16207" },
                     ].map((k) => (
                         <div key={k.label} style={{ flex: "1 1 120px", background: "#f8fafc", borderRadius: 12, padding: "14px 16px" }}>
                             <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{k.label}</div>
-                            <div style={{ fontSize: 20, fontWeight: 800, color: k.accent }}>{k.value}</div>
+                            <div style={{ fontSize: 20, fontWeight: 600, color: k.accent }}>{k.value}</div>
                         </div>
                     ))}
                 </div>
@@ -779,16 +779,16 @@ function CorporateDetailPopup({
                                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: o.color, display: "inline-block" }} />
                                     <span style={{ fontSize: 11, fontWeight: 700, color: o.color }}>{o.label}</span>
                                 </div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", marginBottom: 2 }}>{fmtShort(o.revenue)}</div>
+                                <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>{fmtShort(o.revenue)}</div>
                                 <div style={{ fontSize: 10, color: "var(--text3)" }}>{o.trips} trips</div>
                                 {o.label === "SELF" && (
-                                    <div style={{ fontSize: 9, color: "#3b82f6", marginTop: 4, fontWeight: 600 }}>💰 Full profit retained</div>
+                                    <div style={{ fontSize: 9, color: "#2c5f9e", marginTop: 4, fontWeight: 600 }}>Full profit retained</div>
                                 )}
                                 {o.label === "SPOT" && (
-                                    <div style={{ fontSize: 9, color: "#f59e0b", marginTop: 4, fontWeight: 600 }}>⚡ Spot — margin variable</div>
+                                    <div style={{ fontSize: 9, color: "#a16207", marginTop: 4, fontWeight: 600 }}>Spot — margin variable</div>
                                 )}
                                 {o.label === "ALLOTTED" && (
-                                    <div style={{ fontSize: 9, color: "#10b981", marginTop: 4, fontWeight: 600 }}>🔗 Allotted — credit shared</div>
+                                    <div style={{ fontSize: 9, color: "#15803d", marginTop: 4, fontWeight: 600 }}>Allotted — credit shared</div>
                                 )}
                             </div>
                         ))}
@@ -807,7 +807,7 @@ function CorporateDetailPopup({
                 {branchBreakdown.length > 0 && (
                     <div>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 10 }}>Source Branches</div>
-                        <BarList items={branchBreakdown} valueFormatter={fmtShort} colorFn={(i) => ["#6366f1", "#3b82f6", "#0ea5e9", "#14b8a6", "#10b981", "#84cc16"][i % 6]} />
+                        <BarList items={branchBreakdown} valueFormatter={fmtShort} colorFn={(i) => CATEGORICAL[i % 6]} />
                     </div>
                 )}
             </div>
@@ -854,7 +854,7 @@ function LineChartTooltip({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: "rgba(15,23,42,0.4)",
+                background: "rgba(17,24,39,0.4)",
                 backdropFilter: "blur(2px)",
             }}
             onClick={onClose}
@@ -862,7 +862,7 @@ function LineChartTooltip({
             <div
                 style={{
                     background: "#fff",
-                    borderRadius: 20,
+                    borderRadius: 8,
                     boxShadow: "0 32px 80px rgba(0,0,0,0.22)",
                     padding: "28px 32px",
                     width: "min(700px, 95vw)",
@@ -874,13 +874,13 @@ function LineChartTooltip({
             >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <div>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)" }}>{point.label}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{point.label}</div>
                         <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{monthTrips.length} trips this month</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: "#3b82f6" }}>{fmtCr(point.value)}</div>
+                        <div style={{ fontSize: 20, fontWeight: 600, color: "#2c5f9e" }}>{fmtCr(point.value)}</div>
                         {delta !== null && (
-                            <div style={{ fontSize: 11, fontWeight: 700, color: delta >= 0 ? "#10b981" : "#ef4444" }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: delta >= 0 ? "#15803d" : "#b91c1c" }}>
                                 {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% vs prev
                             </div>
                         )}
@@ -934,10 +934,10 @@ function OwnershipProfitCard({
                 <strong style={{ color: "var(--text)" }}>SELF</strong> vehicles = 100% profit yours. <strong style={{ color: "var(--text)" }}>ALLOTTED</strong> = tied to vendor credit, partial margin. <strong style={{ color: "var(--text)" }}>SPOT</strong> = variable margin based on rate.
             </div>
             {[
-                { data: selfData, label: "SELF", desc: "Full profit retained", icon: "💰", note: "If all trips were SELF" },
-                { data: spotData, label: "SPOT", desc: "Spot rate — variable profit", icon: "⚡", note: "Revenue shown, margin varies" },
-                { data: allottedData, label: "ALLOTTED", desc: "Vendor credit — shared margin", icon: "🔗", note: "Credit belongs to vendor" },
-            ].map(({ data, label, desc, icon, note }) => (
+                { data: selfData, label: "SELF", desc: "Full profit retained", note: "If all trips were SELF" },
+                { data: spotData, label: "SPOT", desc: "Spot rate — variable profit", note: "Revenue shown, margin varies" },
+                { data: allottedData, label: "ALLOTTED", desc: "Vendor credit — shared margin", note: "Credit belongs to vendor" },
+            ].map(({ data, label, desc, note }) => (
                 data ? (
                     <div
                         key={label}
@@ -950,9 +950,9 @@ function OwnershipProfitCard({
                     >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: OWNERSHIP_COLORS[label] || "#64748b" }}>
-                                {icon} {label}
+                                {label}
                             </span>
-                            <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{fmtShort(data.revenue)}</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{fmtShort(data.revenue)}</span>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span style={{ fontSize: 10, color: "var(--text3)" }}>{data.trips} trips · {total ? ((data.revenue / total) * 100).toFixed(0) : 0}% of revenue</span>
@@ -962,7 +962,7 @@ function OwnershipProfitCard({
                             <MiniBar pct={total ? (data.revenue / total) * 100 : 0} color={OWNERSHIP_COLORS[label] || "#94a3b8"} />
                         </div>
                         {label === "SELF" && total > 0 && (
-                            <div style={{ marginTop: 6, fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>
+                            <div style={{ marginTop: 6, fontSize: 10, color: "#2c5f9e", fontWeight: 600 }}>
                                 Potential if ALLOTTED/SPOT were SELF: {fmtShort(total)} (↑{fmtShort(total - data.revenue)} more)
                             </div>
                         )}
@@ -1176,7 +1176,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
         const yes = filtered.filter((r) => (r["UPGRADE"] || "").toUpperCase() === "YES");
         const no = filtered.filter((r) => (r["UPGRADE"] || "").toUpperCase() !== "YES");
         return [
-            { label: "Upgraded", value: yes.length, revenue: yes.reduce((s, r) => s + n(r["TOTAL"]), 0), color: "#10b981" },
+            { label: "Upgraded", value: yes.length, revenue: yes.reduce((s, r) => s + n(r["TOTAL"]), 0), color: "#15803d" },
             { label: "No Upgrade", value: no.length, revenue: no.reduce((s, r) => s + n(r["TOTAL"]), 0), color: "#94a3b8" },
         ];
     }, [filtered]);
@@ -1420,7 +1420,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
             else { noTrips++; noRev += rev; }
         });
         return [
-            { label: "App Duty", value: yesRev, trips: yesTrips, color: "#3b82f6" },
+            { label: "App Duty", value: yesRev, trips: yesTrips, color: "#2c5f9e" },
             { label: "Non-App Duty", value: noRev, trips: noTrips, color: "#94a3b8" },
         ];
     }, [filtered]);
@@ -1642,7 +1642,6 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     gap: 16,
                 }}
             >
-                <div style={{ fontSize: 40 }}>📊</div>
                 <div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", textAlign: "center", marginBottom: 6 }}>
                         No Revenue Data Yet
@@ -1663,7 +1662,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                             border: "none",
                         }}
                     >
-                        {uploading ? "Uploading…" : "📁 Upload Revenue File"}
+                        {uploading ? "Uploading…" : "Upload Revenue File"}
                         <input
                             type="file"
                             accept=".csv,.xlsx,.xls"
@@ -1684,7 +1683,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
     const card = {
         background: "#fff",
         border: "1px solid var(--border)",
-        borderRadius: 16,
+        borderRadius: 8,
         padding: "20px 22px",
     };
 
@@ -1720,10 +1719,10 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
             {/* ── Header + Upload ── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.3px" }}>
-                        💰 Revenue Intelligence
+                    <div style={{ fontSize: 20, fontWeight: 600, color: "var(--text)", letterSpacing: "-0.3px" }}>
+                        Revenue Intelligence
                         {loggedInBranch && (
-                            <span style={{ marginLeft: 10, fontSize: 13, fontWeight: 600, color: "#3b82f6", background: "rgba(59,130,246,0.1)", padding: "2px 10px", borderRadius: 20 }}>
+                            <span style={{ marginLeft: 10, fontSize: 13, fontWeight: 600, color: "#2c5f9e", background: "rgba(44,95,158,0.1)", padding: "2px 10px", borderRadius: 8 }}>
                                 {loggedInBranch} · {filterBranchMode === "source" ? "Source" : "Service"}
                             </span>
                         )}
@@ -1741,16 +1740,16 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                             fontWeight: 700,
                             padding: "7px 16px",
                             borderRadius: 9,
-                            background: dateRange.label !== "Anytime" ? "rgba(59,130,246,0.1)" : "#fff",
-                            color: dateRange.label !== "Anytime" ? "#3b82f6" : "var(--text)",
-                            border: "1px solid " + (dateRange.label !== "Anytime" ? "rgba(59,130,246,0.3)" : "var(--border)"),
+                            background: dateRange.label !== "Anytime" ? "rgba(44,95,158,0.1)" : "#fff",
+                            color: dateRange.label !== "Anytime" ? "#2c5f9e" : "var(--text)",
+                            border: "1px solid " + (dateRange.label !== "Anytime" ? "rgba(44,95,158,0.3)" : "var(--border)"),
                             cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
                             gap: 6,
                         }}
                     >
-                        📅 {dateRange.label}
+                        {dateRange.label}
                     </button>
                     <label
                         style={{
@@ -1761,7 +1760,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                             borderRadius: 9,
                             background: "var(--accent-glow)",
                             color: "var(--accent2)",
-                            border: "1px solid rgba(59,130,246,0.2)",
+                            border: "1px solid rgba(44,95,158,0.2)",
                         }}
                     >
                         {uploading ? "Uploading…" : "+ Upload Revenue File"}
@@ -1814,7 +1813,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                                         padding: "3px 10px",
                                         borderRadius: 6,
                                         border: "1px solid var(--border)",
-                                        background: filterBranchMode === m ? "#3b82f6" : "#fff",
+                                        background: filterBranchMode === m ? "#2c5f9e" : "#fff",
                                         color: filterBranchMode === m ? "#fff" : "var(--text)",
                                         fontWeight: 600,
                                         fontSize: 11,
@@ -1842,7 +1841,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                             setFilterPayment("");
                             setDateRange({ label: "Anytime" });
                         }}
-                        style={{ fontSize: 11, fontWeight: 600, color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "none", borderRadius: 7, padding: "4px 10px", cursor: "pointer" }}
+                        style={{ fontSize: 11, fontWeight: 600, color: "#b91c1c", background: "rgba(185,28,28,0.08)", border: "none", borderRadius: 7, padding: "4px 10px", cursor: "pointer" }}
                     >
                         Clear All
                     </button>
@@ -1850,12 +1849,12 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
             </div>
 
             {/* ── KPI Row ── */}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                <KpiCard label="Total Revenue" value={fmtCr(kpis.totalRevenue)} sub={`${kpis.totalTrips.toLocaleString()} trips`} accent="var(--accent2)" />
+            <div className="auto-grid" style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+                <KpiCard label="Total Revenue" value={fmtCr(kpis.totalRevenue)} sub={`${kpis.totalTrips.toLocaleString()} trips`} />
                 <KpiCard label="Avg / Trip" value={fmtShort(kpis.avgPerTrip)} sub="per invoice" />
-                <KpiCard label="Success Rate" value={`${kpis.totalTrips ? Math.round((kpis.successTrips / kpis.totalTrips) * 100) : 0}%`} sub={`${kpis.successTrips} paid`} accent="#10b981" />
+                <KpiCard label="Success Rate" value={`${kpis.totalTrips ? Math.round((kpis.successTrips / kpis.totalTrips) * 100) : 0}%`} sub={`${kpis.successTrips} paid`} />
                 <KpiCard label="Total Kms" value={`${(kpis.totalKms / 1000).toFixed(1)}K`} sub="revenue kms" />
-                <KpiCard label="Upgraded Trips" value={kpis.upgraded.toString()} sub={`${kpis.totalTrips ? Math.round((kpis.upgraded / kpis.totalTrips) * 100) : 0}% of trips`} accent="#f59e0b" />
+                <KpiCard label="Upgraded Trips" value={kpis.upgraded.toString()} sub={`${kpis.totalTrips ? Math.round((kpis.upgraded / kpis.totalTrips) * 100) : 0}% of trips`} />
                 <KpiCard label="Corporates" value={kpis.corporateCount.toString()} sub="unique clients" />
             </div>
 
@@ -1916,7 +1915,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {topCorporates.map((corp, i) => {
                             const max = Math.max(...topCorporates.map((x) => x.value), 1);
-                            const CORP_COLORS = ["#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#14b8a6", "#f97316", "#0ea5e9", "#a855f7"];
+                            const CORP_COLORS = CATEGORICAL;
                             return (
                                 <div
                                     key={corp.label}
@@ -1931,7 +1930,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                             {corp.sub && <span style={{ fontSize: 11, color: "var(--text3)" }}>{corp.sub}</span>}
                                             <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{fmtShort(corp.value)}</span>
-                                            <span style={{ fontSize: 10, color: "#3b82f6" }}>↗</span>
+                                            <span style={{ fontSize: 10, color: "#2c5f9e" }}>↗</span>
                                         </div>
                                     </div>
                                     <MiniBar pct={(corp.value / max) * 100} color={CORP_COLORS[i % CORP_COLORS.length]} />
@@ -1949,14 +1948,14 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                         Usage Type Breakdown
                         <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>by revenue</span>
                     </div>
-                    <SvgBarChart data={usageData} height={180} colorFn={(i) => ["#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#14b8a6", "#f97316"][i % 8]} />
+                    <SvgBarChart data={usageData} height={180} colorFn={(i) => CATEGORICAL[i % 8]} />
                 </div>
                 <div style={card}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
                         Car Type Performance
                         <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>revenue · trips</span>
                     </div>
-                    <SvgBarChart data={carTypeData} height={180} colorFn={(i) => ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6", "#f97316", "#6366f1"][i % 8]} />
+                    <SvgBarChart data={carTypeData} height={180} colorFn={(i) => CATEGORICAL[i % 8]} />
                 </div>
             </div>
 
@@ -1966,13 +1965,13 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16 }}>
                         Revenue by Source Branch
                     </div>
-                    <SvgBarChart data={branchData} height={180} colorFn={(i) => ["#6366f1", "#3b82f6", "#0ea5e9", "#14b8a6", "#10b981", "#84cc16", "#f59e0b", "#f97316"][i % 8]} />
+                    <SvgBarChart data={branchData} height={180} colorFn={(i) => CATEGORICAL[i % 8]} />
                 </div>
                 <div style={card}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16 }}>
                         Revenue by Duty City
                     </div>
-                    <SvgBarChart data={serviceBranchData} height={180} colorFn={(i) => ["#f97316", "#f59e0b", "#10b981", "#14b8a6", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899"][i % 8]} />
+                    <SvgBarChart data={serviceBranchData} height={180} colorFn={(i) => CATEGORICAL[i % 8]} />
                 </div>
             </div>
 
@@ -2028,7 +2027,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
             </div>
 
             {/* ── Payment & Collections ── */}
-            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>💳 Payment &amp; Collections</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>Payment &amp; Collections</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                 <div style={card}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
@@ -2037,7 +2036,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     </div>
                     {outstandingData.length === 0
                         ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No outstanding invoices</div>
-                        : <BarList items={outstandingData} valueFormatter={fmtShort} colorFn={() => "#ef4444"} />
+                        : <BarList items={outstandingData} valueFormatter={fmtShort} colorFn={() => "#b91c1c"} />
                     }
                 </div>
                 <div style={card}>
@@ -2057,13 +2056,13 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     </div>
                     {creditNoteData.length === 0
                         ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No credit notes in this period</div>
-                        : <BarList items={creditNoteData} valueFormatter={fmtShort} colorFn={() => "#f59e0b"} />
+                        : <BarList items={creditNoteData} valueFormatter={fmtShort} colorFn={() => "#a16207"} />
                     }
                 </div>
             </div>
 
             {/* ── Charges & Tax Breakdown ── */}
-            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>📋 Charges &amp; Tax Breakdown</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>Charges &amp; Tax Breakdown</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                 <div style={card}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
@@ -2082,7 +2081,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     </div>
                     {extraOverrunData.length === 0
                         ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No overruns in this period</div>
-                        : <BarList items={extraOverrunData} valueFormatter={fmtShort} colorFn={() => "#8b5cf6"} />
+                        : <BarList items={extraOverrunData} valueFormatter={fmtShort} colorFn={() => "#94a3b8"} />
                     }
                 </div>
                 <div style={card}>
@@ -2092,13 +2091,13 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     </div>
                     {taxByMonth.length === 0
                         ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No tax data</div>
-                        : <SvgBarChart data={taxByMonth} height={180} colorFn={() => "#6366f1"} />
+                        : <SvgBarChart data={taxByMonth} height={180} colorFn={() => "#64748b"} />
                     }
                 </div>
             </div>
 
             {/* ── App Duty & Upgrades ── */}
-            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>⚡ App Duty &amp; Upgrades</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>App Duty &amp; Upgrades</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                 <div style={card}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
@@ -2126,7 +2125,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     </div>
                     {upgradeRateByCorp.length === 0
                         ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>Not enough data</div>
-                        : <SvgBarChart data={upgradeRateByCorp} height={180} colorFn={() => "#10b981"} />
+                        : <SvgBarChart data={upgradeRateByCorp} height={180} colorFn={() => "#15803d"} />
                     }
                 </div>
                 <div style={card}>
@@ -2136,13 +2135,13 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     </div>
                     {upgradeRateByCarType.length === 0
                         ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>Not enough data</div>
-                        : <SvgBarChart data={upgradeRateByCarType} height={180} colorFn={() => "#f59e0b"} />
+                        : <SvgBarChart data={upgradeRateByCarType} height={180} colorFn={() => "#a16207"} />
                     }
                 </div>
             </div>
 
             {/* ── Vehicle & Driver Intelligence ── */}
-            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>🚗 Vehicle &amp; Driver Intelligence</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>Vehicle &amp; Driver Intelligence</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
                 <div style={card}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
@@ -2158,7 +2157,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                                         <span style={{ fontSize: 11, color: "var(--text3)", minWidth: 20 }}>{i + 1}</span>
                                         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.vehicle}</span>
                                         <span style={{ fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>{v.revKms.toFixed(0)} rev / {v.dryKms.toFixed(0)} dry</span>
-                                        <span style={{ fontSize: 12, fontWeight: 700, minWidth: 36, textAlign: "right", color: v.effPct >= 80 ? "#10b981" : v.effPct >= 60 ? "#f59e0b" : "#ef4444" }}>{v.effPct}%</span>
+                                        <span style={{ fontSize: 12, fontWeight: 700, minWidth: 36, textAlign: "right", color: v.effPct >= 80 ? "#15803d" : v.effPct >= 60 ? "#a16207" : "#b91c1c" }}>{v.effPct}%</span>
                                     </div>
                                 ))}
                             </div>
@@ -2184,7 +2183,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     </div>
                     {durationBuckets.length === 0
                         ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No duty time data</div>
-                        : <SvgBarChart data={durationBuckets} height={180} colorFn={(i) => ["#3b82f6","#60a5fa","#93c5fd","#f59e0b","#ef4444","#8b5cf6"][i % 6]} />
+                        : <SvgBarChart data={durationBuckets} height={180} colorFn={(i) => CATEGORICAL[i % 6]} />
                     }
                 </div>
                 <div style={card}>
@@ -2194,7 +2193,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     </div>
                     {nightTripData.length === 0
                         ? <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>No night trips</div>
-                        : <BarList items={nightTripData} valueFormatter={(v) => v.toString()} colorFn={() => "#6366f1"} />
+                        : <BarList items={nightTripData} valueFormatter={(v) => v.toString()} colorFn={() => "#64748b"} />
                     }
                 </div>
                 <div style={card}>
@@ -2210,7 +2209,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
             </div>
 
             {/* ── Corporate Intelligence ── */}
-            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>🏢 Corporate Intelligence</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginTop: 8, marginBottom: 4 }}>Corporate Intelligence</div>
             <div style={{ ...card, padding: 0, overflow: "hidden", marginBottom: 14 }}>
                 <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>Corporate Payment Health</div>
@@ -2233,12 +2232,12 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                                     <td style={{ padding: "8px 14px", fontWeight: 600, color: "var(--text)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.corp}</td>
                                     <td style={{ padding: "8px 14px", color: "var(--text3)" }}>{row.trips}</td>
                                     <td style={{ padding: "8px 14px" }}>
-                                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: row.successRate >= 80 ? "rgba(16,185,129,0.1)" : row.successRate >= 60 ? "rgba(245,158,11,0.1)" : "rgba(239,68,68,0.1)", color: row.successRate >= 80 ? "#10b981" : row.successRate >= 60 ? "#f59e0b" : "#ef4444" }}>
+                                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: row.successRate >= 80 ? "rgba(21,128,61,0.1)" : row.successRate >= 60 ? "rgba(161,98,7,0.1)" : "rgba(185,28,28,0.1)", color: row.successRate >= 80 ? "#15803d" : row.successRate >= 60 ? "#a16207" : "#b91c1c" }}>
                                             {row.successRate}%
                                         </span>
                                     </td>
-                                    <td style={{ padding: "8px 14px", fontWeight: 600, color: row.outstanding > 0 ? "#ef4444" : "var(--text3)" }}>{row.outstanding > 0 ? fmtShort(row.outstanding) : "—"}</td>
-                                    <td style={{ padding: "8px 14px", fontWeight: 600, color: row.cnAmt > 0 ? "#f59e0b" : "var(--text3)" }}>{row.cnAmt > 0 ? fmtShort(row.cnAmt) : "—"}</td>
+                                    <td style={{ padding: "8px 14px", fontWeight: 600, color: row.outstanding > 0 ? "#b91c1c" : "var(--text3)" }}>{row.outstanding > 0 ? fmtShort(row.outstanding) : "—"}</td>
+                                    <td style={{ padding: "8px 14px", fontWeight: 600, color: row.cnAmt > 0 ? "#a16207" : "var(--text3)" }}>{row.cnAmt > 0 ? fmtShort(row.cnAmt) : "—"}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -2255,7 +2254,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                     : (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
                             {corpCarPreference.map((c, i) => {
-                                const PREF_COLORS = ["#3b82f6","#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#14b8a6","#f97316","#0ea5e9","#a855f7","#84cc16","#ef4444"];
+                                const PREF_COLORS = CATEGORICAL;
                                 return (
                                     <div key={c.corp} style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
                                         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c.corp}>{c.corp}</div>
@@ -2354,7 +2353,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                                         </td>
                                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
                                             {(r["UPGRADE"] || "").toUpperCase() === "YES" ? (
-                                                <span style={{ fontSize: 10, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "2px 6px", borderRadius: 5 }}>YES</span>
+                                                <span style={{ fontSize: 10, fontWeight: 700, color: "#15803d", background: "rgba(21,128,61,0.1)", padding: "2px 6px", borderRadius: 5 }}>YES</span>
                                             ) : (
                                                 <span style={{ fontSize: 10, color: "var(--text3)" }}>—</span>
                                             )}
@@ -2372,7 +2371,7 @@ export default function RevenueIntelligence({ trips, loading, onUpload, uploadin
                                                     fontWeight: 700,
                                                     padding: "2px 7px",
                                                     borderRadius: 6,
-                                                    background: payStatus === "Success" ? "rgba(16,185,129,0.1)" : "rgba(148,163,184,0.12)",
+                                                    background: payStatus === "Success" ? "rgba(21,128,61,0.1)" : "rgba(148,163,184,0.12)",
                                                     color: STATUS_COLOR[payStatus] || "#94a3b8",
                                                 }}
                                             >

@@ -90,7 +90,7 @@ function VehicleSearch({
           onFocus={() => setOpen(true)}
         />
         {query && (
-          <button onClick={handleClear} className="px-2 text-xs" style={{ color: "var(--text3)" }}>✕</button>
+          <button onClick={handleClear} className="px-2 text-xs" style={{ color: "var(--text3)" }}>×</button>
         )}
       </div>
       {open && filtered.length > 0 && (
@@ -201,23 +201,23 @@ export default function VehicleTrend({ data }: { data: FleetRow[] }) {
           {
             label: "Revenue",
             data: monthlyData.map(m => +(m.revenue / 1e3).toFixed(1)),
-            borderColor: "#2563eb",
-            backgroundColor: "rgba(37,99,235,0.08)",
-            fill: true, tension: 0.3, pointRadius: 5, pointBackgroundColor: "#2563eb",
+            borderColor: "#2c5f9e",
+            backgroundColor: "rgba(44,95,158,0.08)",
+            fill: true, tension: 0.3, pointRadius: 5, pointBackgroundColor: "#2c5f9e",
           },
           {
             label: "Profit",
             data: monthlyData.map(m => +(m.profit / 1e3).toFixed(1)),
-            borderColor: "#059669",
-            backgroundColor: "rgba(5,150,105,0.08)",
-            fill: true, tension: 0.3, pointRadius: 5, pointBackgroundColor: "#059669",
+            borderColor: "#15803d",
+            backgroundColor: "rgba(21,128,61,0.08)",
+            fill: true, tension: 0.3, pointRadius: 5, pointBackgroundColor: "#15803d",
           },
           {
             label: "Cost",
             data: monthlyData.map(m => +(m.cost / 1e3).toFixed(1)),
-            borderColor: "#dc2626",
-            backgroundColor: "rgba(220,38,38,0.05)",
-            fill: false, tension: 0.3, pointRadius: 5, pointBackgroundColor: "#dc2626",
+            borderColor: "#b91c1c",
+            backgroundColor: "rgba(185,28,28,0.05)",
+            fill: false, tension: 0.3, pointRadius: 5, pointBackgroundColor: "#b91c1c",
             borderDash: [4, 4],
           },
         ],
@@ -239,7 +239,7 @@ export default function VehicleTrend({ data }: { data: FleetRow[] }) {
         scales: {
           x: { grid: { display: false }, ticks: { font: { size: 11 } }, border: { display: false } },
           y: {
-            grid: { color: "rgba(200,211,230,0.6)" },
+            grid: { color: "rgba(229,231,235,0.6)" },
             ticks: { font: { size: 11 }, callback: v => "₹" + v + "K" },
             border: { display: false },
           },
@@ -272,10 +272,10 @@ export default function VehicleTrend({ data }: { data: FleetRow[] }) {
               className="text-xs font-semibold px-2.5 py-1 rounded-full"
               style={
                 trend === "improving"
-                  ? { background: "var(--green-dim)", color: "var(--green)", border: "1px solid rgba(5,150,105,0.2)" }
+                  ? { background: "var(--green-dim)", color: "var(--green)", border: "1px solid rgba(21,128,61,0.2)" }
                   : trend === "declining"
-                  ? { background: "var(--red-dim)", color: "var(--red)", border: "1px solid rgba(220,38,38,0.2)" }
-                  : { background: "var(--amber-dim)", color: "var(--amber)", border: "1px solid rgba(217,119,6,0.2)" }
+                  ? { background: "var(--red-dim)", color: "var(--red)", border: "1px solid rgba(185,28,28,0.2)" }
+                  : { background: "var(--amber-dim)", color: "var(--amber)", border: "1px solid rgba(161,98,7,0.2)" }
               }
             >
               {trend === "improving" ? "↑ Improving" : trend === "declining" ? "↓ Declining" : "→ Stable"}

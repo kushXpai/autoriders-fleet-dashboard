@@ -2,7 +2,7 @@
 // Client-side helpers for talking to the API routes.
 
 import { clearUser } from "./auth";
-import type { FleetRow } from "./types";
+import type { FleetRow, RevenueRow } from "./types";
 
 /** Parse a response as JSON; falls back to a readable error for HTML/empty bodies. */
 export async function readJson<T = Record<string, unknown>>(res: Response): Promise<T> {
@@ -58,4 +58,26 @@ export async function fetchAllFleetData(): Promise<FleetRow[]> {
     cursor = body.nextCursor ?? null;
   } while (cursor);
   return rows;
+}
+
+const REVENUE_SEGMENTS = 8;
+
+/** Loads every revenue row (developer only): parallel scan segments, each following its own cursor. */
+export async function fetchAllRevenue(): Promise<RevenueRow[]> {
+  const loadSegment = async (segment: number): Promise<RevenueRow[]> => {
+    const rows: RevenueRow[] = [];
+    let cursor: string | null = null;
+    do {
+      const qs = new URLSearchParams({ segment: String(segment), totalSegments: String(REVENUE_SEGMENTS) });
+      if (cursor) qs.set("cursor", cursor);
+      const res = await fetch(`/api/revenue?${qs}`);
+      const body = await readJson<{ data?: RevenueRow[]; nextCursor?: string | null; error?: string }>(res);
+      if (!res.ok || !body.data) throw new Error(body.error || `Failed to load revenue data (HTTP ${res.status})`);
+      rows.push(...body.data);
+      cursor = body.nextCursor ?? null;
+    } while (cursor);
+    return rows;
+  };
+  const parts = await Promise.all(Array.from({ length: REVENUE_SEGMENTS }, (_, i) => loadSegment(i)));
+  return parts.flat();
 }

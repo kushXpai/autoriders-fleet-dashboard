@@ -17,9 +17,9 @@ function getFYStart(month: string, year: string): number {
 
 function TrendArrow({ delta }: { delta: number | null }) {
   if (delta === null) return null;
-  const color = delta >= 0 ? "#10b981" : "#ef4444";
+  const color = delta >= 0 ? "var(--green)" : "var(--red)";
   return (
-    <span style={{ color, fontSize: 10, fontWeight: 700, marginLeft: 5 }}>
+    <span style={{ color, fontSize: 11, fontWeight: 600 }}>
       {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}%
     </span>
   );
@@ -65,67 +65,49 @@ export default function KpiGrid({ data }: { data: FleetRow[] }) {
     };
   }, [data]);
 
-  // #3: margin colour
-  const marginColor = margin >= 30 ? "#10b981" : margin >= 15 ? "#f59e0b" : "#ef4444";
+  const marginColor = margin >= 30 ? "var(--green)" : margin >= 15 ? "var(--amber)" : "var(--red)";
 
-  const cardBase: React.CSSProperties = {
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    borderRadius: 16,
-    padding: 20,
-    transition: "transform 0.2s",
-  };
+  const cards: { label: string; value: string; color?: string; sub: React.ReactNode }[] = [
+    {
+      label: "Total Revenue",
+      value: cr(revenue),
+      sub: <>{activeVehicles} active vehicles<TrendArrow delta={momTrends?.revDelta ?? null} /></>,
+    },
+    {
+      label: "Net Profit",
+      value: cr(profit),
+      color: profit >= 0 ? undefined : "var(--red)",
+      sub: <>Active fleet only<TrendArrow delta={momTrends?.profDelta ?? null} /></>,
+    },
+    { label: "Profit Margin", value: `${margin.toFixed(1)}%`, color: marginColor, sub: "Profit ÷ revenue" },
+    { label: "Total Expenses", value: cr(expenses), sub: "All vehicles, incl. idle" },
+    {
+      label: "Fleet Utilisation",
+      value: uniqueVehicles > 0 ? `${((activeVehicles / uniqueVehicles) * 100).toFixed(1)}%` : "0%",
+      sub: `${activeVehicles} of ${uniqueVehicles} vehicles earning · ${idleVehicles} idle`,
+    },
+  ];
 
   return (
-    <div className="grid gap-3.5 mb-5 kpi-grid-resp" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
-
-      {/* Revenue */}
-      <div style={cardBase} className="hover:-translate-y-px">
-        <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--text3)" }}>Total Revenue</div>
-        <div className="text-2xl font-bold leading-none" style={{ color: "var(--text)", letterSpacing: "-0.8px" }}>{cr(revenue)}</div>
-        <div className="text-xs mt-2 flex items-center" style={{ color: "var(--text3)" }}>
-          {activeVehicles} active vehicles
-          <TrendArrow delta={momTrends?.revDelta ?? null} />
+    <div className="grid gap-3 mb-4 kpi-grid-resp" style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}>
+      {cards.map((c) => (
+        <div
+          key={c.label}
+          className="min-w-0 rounded-lg"
+          style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "14px 16px" }}
+        >
+          <div className="text-xs font-medium mb-1.5 truncate" style={{ color: "var(--text3)" }}>{c.label}</div>
+          <div
+            className="font-semibold leading-tight truncate"
+            style={{ color: c.color ?? "var(--text)", fontSize: "clamp(18px, 5vw, 24px)", letterSpacing: "-0.4px" }}
+          >
+            {c.value}
+          </div>
+          <div className="text-xs mt-1.5 flex flex-wrap items-center" style={{ color: "var(--text3)", columnGap: 4 }}>
+            {c.sub}
+          </div>
         </div>
-      </div>
-
-      {/* Net Profit */}
-      <div style={cardBase} className="hover:-translate-y-px">
-        <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--text3)" }}>Net Profit</div>
-        <div className="text-2xl font-bold leading-none" style={{ color: profit >= 0 ? "var(--text)" : "#ef4444", letterSpacing: "-0.8px" }}>{cr(profit)}</div>
-        <div className="text-xs mt-2 flex items-center" style={{ color: "var(--text3)" }}>
-          active fleet only
-          <TrendArrow delta={momTrends?.profDelta ?? null} />
-        </div>
-      </div>
-
-      {/* #3 Profit Margin — own card */}
-      <div style={cardBase} className="hover:-translate-y-px">
-        <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--text3)" }}>Profit Margin</div>
-        <div className="text-2xl font-bold leading-none" style={{ color: marginColor, letterSpacing: "-0.8px" }}>{margin.toFixed(1)}%</div>
-        <div className="text-xs mt-2" style={{ color: "var(--text3)" }}>revenue → profit ratio</div>
-      </div>
-
-      {/* Expenses — all vehicles */}
-      <div style={cardBase} className="hover:-translate-y-px">
-        <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--text3)" }}>Total Expenses</div>
-        <div className="text-2xl font-bold leading-none" style={{ color: "var(--text)", letterSpacing: "-0.8px" }}>{cr(expenses)}</div>
-        <div className="text-xs mt-2" style={{ color: "var(--text3)" }}>all vehicles incl. idle EMI</div>
-      </div>
-
-      {/* Fleet Size */}
-      <div style={cardBase} className="hover:-translate-y-px">
-        <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--text3)" }}>Fleet Size</div>
-        <div className="text-2xl font-bold leading-none" style={{ color: "var(--text)", letterSpacing: "-0.8px" }}>{uniqueVehicles}</div>
-        <div className="text-xs mt-2" style={{ color: "var(--text3)" }}>
-          <span style={{ color: "#10b981", fontWeight: 600 }}>{activeVehicles} active</span>
-          {" · "}
-          <span style={{ color: idleVehicles > 0 ? "#f59e0b" : "var(--text3)", fontWeight: idleVehicles > 0 ? 600 : 400 }}>
-            {idleVehicles} idle
-          </span>
-        </div>
-      </div>
-
+      ))}
     </div>
   );
 }

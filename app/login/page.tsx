@@ -42,72 +42,23 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left Panel */}
-      <div
-        className="hidden lg:flex lg:w-[55%] flex-col justify-between p-10 relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #0f1729 0%, #1a2744 50%, #0f1729 100%)" }}
-      >
-        {/* Logo */}
+      <div className="hidden lg:flex lg:w-[45%] flex-col justify-between p-10" style={{ background: "#111827" }}>
+        <Image src="/autoriders.webp" alt="Autoriders Group" width={80} height={80} priority className="w-16 h-16 rounded-full object-cover" />
         <div>
-          <Image
-            src="/autoriders.webp"
-            alt="Autoriders Group"
-            width={80}
-            height={80}
-            priority
-            className="w-20 h-20 rounded-full object-cover"
-            style={{ boxShadow: "0 0 30px rgba(59,130,246,0.3)" }}
-          />
-        </div>
-
-        {/* Tagline */}
-        <div>
-          <h2 className="syne text-3xl font-extrabold text-white leading-tight">
-            Fleet Intelligence
-            <br />
-            <span style={{ color: "#3b82f6" }}>made simple.</span>
-          </h2>
-          <p className="mt-4 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-            Manage fleet performance, track revenue, and optimize
-            <br />
-            operations — all in one place.
+          <h2 className="text-2xl font-semibold text-white leading-snug">Fleet Intelligence</h2>
+          <p className="mt-3 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+            Fleet performance, revenue and branch reporting in one place.
           </p>
-
-          <div className="flex gap-8 mt-8">
-            {[
-              { val: "500+", label: "Vehicles" },
-              { val: "15+", label: "Branches" },
-              { val: "99%", label: "Uptime" },
-            ].map((s) => (
-              <div key={s.label}>
-                <div className="text-xl font-bold text-white">{s.val}</div>
-                <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  {s.label}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
-
-        {/* Footer */}
-        <div className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+        <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
           &copy; 2026 Autoriders International Limited
         </div>
-
-        {/* Background decorative circles */}
-        <div
-          className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full"
-          style={{ background: "rgba(26,39,68,0.8)" }}
-        />
-        <div
-          className="absolute -bottom-16 right-32 w-64 h-64 rounded-full"
-          style={{ background: "rgba(26,39,68,0.6)" }}
-        />
       </div>
 
       {/* Right Panel */}
-      <div className="flex-1 flex items-center justify-center p-5 sm:p-8" style={{ background: "#f8fafc" }}>
+      <div className="flex-1 flex items-center justify-center p-5 sm:p-8" style={{ background: "var(--bg)" }}>
         <div className="w-full max-w-sm">
-          <h1 className="syne text-2xl font-extrabold mb-1" style={{ color: "#0f1c2e" }}>
+          <h1 className="text-xl font-semibold mb-1" style={{ color: "#111827" }}>
             Welcome back
           </h1>
           <p className="text-sm mb-8" style={{ color: "#64748b" }}>
@@ -131,11 +82,11 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter username"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-3 rounded-md text-sm outline-none transition-all"
                   style={{
                     background: "white",
                     border: "1px solid #e2e8f0",
-                    color: "#0f1c2e",
+                    color: "#111827",
                   }}
                   autoFocus
                 />
@@ -158,11 +109,11 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
-                  className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none transition-all"
+                  className="w-full pl-10 pr-10 py-3 rounded-md text-sm outline-none transition-all"
                   style={{
                     background: "white",
                     border: "1px solid #e2e8f0",
-                    color: "#0f1c2e",
+                    color: "#111827",
                   }}
                 />
                 <button
@@ -190,8 +141,8 @@ export default function LoginPage() {
 
             {error && (
               <div
-                className="mb-4 text-xs font-medium px-3 py-2 rounded-lg"
-                style={{ background: "rgba(220,38,38,0.1)", color: "#dc2626", border: "1px solid rgba(220,38,38,0.2)" }}
+                className="mb-4 text-xs font-medium px-3 py-2 rounded-md"
+                style={{ background: "var(--red-dim)", color: "var(--red)", border: "1px solid rgba(185,28,28,0.2)" }}
               >
                 {error}
               </div>
@@ -200,8 +151,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !username || !password}
-              className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
-              style={{ background: "#1a2744" }}
+              className="w-full py-2.5 rounded-md text-sm font-semibold text-white transition-all disabled:opacity-50"
+              style={{ background: "#111827" }}
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
